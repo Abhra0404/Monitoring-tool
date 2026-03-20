@@ -1,0 +1,19 @@
+{
+  "name": "monitoring-tool",
+  "version": "1.0.0",
+  "description": "Monitoring tool with agent, client, and server",
+  "scripts": {
+    "start": "concurrently --names \"SERVER,AGENT-1,AGENT-2,AGENT-3,CLIENT\" --prefix-colors \"blue,green,cyan,magenta,yellow\" \"npm start --prefix server\" \"npm start --prefix agent\" \"npm start --prefix agent-2\" \"npm start --prefix agent-3\" \"npm start --prefix client\"",
+    "server": "npm start --prefix server",
+    "agent": "npm start --prefix agent",
+    "agent-2": "npm start --prefix agent-2",
+    "agent-3": "npm start --prefix agent-3",
+    "client": "npm start --prefix client"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
