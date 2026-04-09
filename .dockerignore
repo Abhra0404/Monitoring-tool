@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+*.md
+client/node_modules
+server/node_modules
+agent/node_modules
+client/build
+.monitorx

@@ -1,16 +1,19 @@
 {
-  "name": "monitoring-tool",
+  "name": "monitorx",
   "version": "1.0.0",
-  "description": "Monitoring tool with agent, client, and server",
+  "description": "Self-hosted system monitoring — one command, full dashboard",
+  "bin": {
+    "monitorx": "./bin/monitorx.js"
+  },
   "scripts": {
-    "start": "concurrently --names \"SERVER,AGENT-1,AGENT-2,AGENT-3,CLIENT\" --prefix-colors \"blue,green,cyan,magenta,yellow\" \"npm start --prefix server\" \"npm start --prefix agent\" \"npm start --prefix agent-2\" \"npm start --prefix agent-3\" \"npm start --prefix client\"",
+    "start": "node bin/monitorx.js",
+    "dev": "concurrently --names \"SERVER,CLIENT\" --prefix-colors \"blue,yellow\" \"npm start --prefix server\" \"npm start --prefix client\"",
     "server": "npm start --prefix server",
     "agent": "npm start --prefix agent",
-    "agent-2": "npm start --prefix agent-2",
-    "agent-3": "npm start --prefix agent-3",
-    "client": "npm start --prefix client"
+    "client": "npm start --prefix client",
+    "build": "npm run build --prefix client"
   },
-  "keywords": [],
+  "keywords": ["monitoring", "dashboard", "devops", "system-monitor", "self-hosted"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

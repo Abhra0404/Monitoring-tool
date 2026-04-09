@@ -1,5 +1,7 @@
 const express = require("express");
 const http = require("http");
+const path = require("path");
+const fs = require("fs");
 const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
@@ -67,6 +69,34 @@ app.use("/api/alerts", alertsRoutes);
 
 // Agent metrics endpoint (rate limited + API key auth)
 app.post("/metrics", rateLimiter, authenticateApiKey, metricsController.receiveMetrics);
+
+// ── Serve React client build (Jenkins-style: single process, single port) ──
+// Look for client build in multiple possible locations
+const clientBuildPaths = [
+  path.join(__dirname, "../../client/build"),       // dev: repo root
+  path.join(__dirname, "../client/build"),           // alt structure
+  process.env.CLIENT_BUILD_PATH,                     // explicit override
+].filter(Boolean);
+
+const clientBuildDir = clientBuildPaths.find((p) => fs.existsSync(path.join(p, "index.html")));
+
+if (clientBuildDir) {
+  app.use(express.static(clientBuildDir));
+  // SPA fallback — any non-API route serves index.html
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(clientBuildDir, "index.html"));
+  });
+  console.log(`Serving dashboard from ${clientBuildDir}`);
+} else {
+  app.get("/", (req, res) => {
+    res.json({
+      name: "MonitorX API",
+      version: "1.0.0",
+      status: "running",
+      message: "Dashboard not built. Run: npm run build --prefix client",
+    });
+  });
+}
 
 const server = http.createServer(app);
 const io = initSocket(server);
