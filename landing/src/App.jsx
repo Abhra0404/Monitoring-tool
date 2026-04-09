@@ -214,8 +214,8 @@ function Hero() {
               <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-red-accent/40 via-red-glow/20 to-red-accent/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
               <div className="relative flex items-center gap-3 px-6 sm:px-8 py-4 rounded-2xl bg-surface-card border border-stroke-light font-mono text-base sm:text-lg glow-red">
                 <span className="text-red-accent font-bold">$</span>
-                <span className="text-fg">npx monitorx</span>
-                <CopyBtn text="npx monitorx" className="ml-2" />
+                <span className="text-fg">npx monitorx-cli</span>
+                <CopyBtn text="npx monitorx-cli" className="ml-2" />
               </div>
             </div>
             <p className="mt-4 text-xs text-fg-muted flex items-center gap-1.5">
@@ -450,7 +450,7 @@ const FEATURES = [
   {
     icon: Terminal,
     title: "One Command Setup",
-    description: "npx monitorx — installs dependencies, builds the dashboard, starts the server, and opens your browser automatically.",
+    description: "npx monitorx-cli — starts the server, opens the dashboard, and walks you through setup on first run.",
   },
   {
     icon: Container,
@@ -785,8 +785,8 @@ function CTA() {
             <div className="absolute -inset-[2px] rounded-2xl bg-gradient-to-r from-red-accent/50 via-red-glow/30 to-red-accent/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur" />
             <div className="relative flex items-center gap-4 px-8 py-5 rounded-2xl bg-surface-card border border-stroke-light font-mono text-lg glow-red-strong">
               <span className="text-red-accent font-bold">$</span>
-              <span className="text-fg">npx monitorx</span>
-              <CopyBtn text="npx monitorx" />
+              <span className="text-fg">npx monitorx-cli</span>
+              <CopyBtn text="npx monitorx-cli" />
             </div>
           </div>
 

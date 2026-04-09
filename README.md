@@ -3,7 +3,7 @@
 Self-hosted system monitoring. One command, full dashboard.
 
 ```
-npx monitorx
+npx monitorx-cli
 ```
 
 ## Quick Start
@@ -16,27 +16,23 @@ npx monitorx
 ### Run it
 
 ```bash
-git clone https://github.com/Abhra0404/Monitoring-tool.git
-cd Monitoring-tool
-npm start
+npx monitorx-cli
 ```
 
 That's it. On first run, it will:
 
 1. Ask for your MongoDB URI and port
-2. Install all dependencies automatically
-3. Build the dashboard
-4. Start the server and open your browser
+2. Start the server and open your browser
 
-Subsequent runs skip setup and start instantly.
+Subsequent runs use your saved config and start instantly.
 
 ### CLI Options
 
 ```bash
-npx monitorx                     # Interactive setup + start
-npx monitorx --port 8080         # Custom port
-npx monitorx --mongo mongodb+srv://user:pass@cluster/db   # Remote MongoDB
-npx monitorx --reset             # Re-run first-time setup
+npx monitorx-cli                     # Interactive setup + start
+npx monitorx-cli --port 8080         # Custom port
+npx monitorx-cli --mongo mongodb+srv://user:pass@cluster/db   # Remote MongoDB
+npx monitorx-cli --reset             # Re-run first-time setup
 ```
 
 ---

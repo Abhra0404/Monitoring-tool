@@ -1,22 +1,40 @@
 {
-  "name": "monitorx",
+  "name": "monitorx-cli",
   "version": "1.0.0",
-  "description": "Self-hosted system monitoring — one command, full dashboard",
+  "description": "Self-hosted system monitoring — one command, full dashboard. npx monitorx-cli to start.",
   "bin": {
-    "monitorx": "./bin/monitorx.js"
+    "monitorx-cli": "./bin/monitorx.js"
   },
+  "files": [
+    "bin/",
+    "server/src/",
+    "server/package.json",
+    "client/build/"
+  ],
   "scripts": {
     "start": "node bin/monitorx.js",
-    "dev": "concurrently --names \"SERVER,CLIENT\" --prefix-colors \"blue,yellow\" \"npm start --prefix server\" \"npm start --prefix client\"",
-    "server": "npm start --prefix server",
-    "agent": "npm start --prefix agent",
-    "client": "npm start --prefix client",
-    "build": "npm run build --prefix client"
+    "build:client": "cd client && npm install && REACT_APP_API_URL= npm run build",
+    "prepublishOnly": "npm run build:client"
   },
-  "keywords": ["monitoring", "dashboard", "devops", "system-monitor", "self-hosted"],
-  "author": "",
+  "keywords": ["monitoring", "dashboard", "devops", "self-hosted", "server-monitoring", "cli", "grafana-alternative", "system-monitor", "real-time"],
+  "author": "Abhra0404",
   "license": "ISC",
-  "devDependencies": {
-    "concurrently": "^9.1.2"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Abhra0404/Monitoring-tool.git"
+  },
+  "homepage": "https://github.com/Abhra0404/Monitoring-tool#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.3.1",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
   }
 }
