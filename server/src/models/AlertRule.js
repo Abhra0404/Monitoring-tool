@@ -8,29 +8,41 @@ const alertRuleSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    serverId: {
+    name: {
       type: String,
       required: true,
-      index: true,
+    }, // E.g., "High CPU Usage"
+    metricName: {
+      type: String,
+      required: true,
+    }, // The exact metric to watch, e.g., "cpu_usage"
+    labels: {
+      type: Map,
+      of: String,
+      default: {},
+    }, // Filter which metrics apply, e.g., { host: "server-1" }
+    operator: {
+      type: String,
+      enum: [">", "<", ">=", "<=", "=="],
+      required: true,
     },
-    cpuThreshold: {
+    threshold: {
       type: Number,
       required: true,
-      min: 1,
-      max: 100,
-      default: 80,
     },
-    memoryThreshold: {
+    durationMinutes: {
       type: Number,
       required: true,
-      min: 1,
-      max: 100,
-      default: 90,
+      default: 5,
+    }, // Duration for stateful alerting 
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true }
 );
 
-alertRuleSchema.index({ userId: 1, serverId: 1 }, { unique: true });
+alertRuleSchema.index({ userId: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model("AlertRule", alertRuleSchema);

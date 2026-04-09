@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Activity } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-toastify";
 
@@ -39,53 +40,54 @@ function Signup() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[#010409] text-white flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            Monitor<span className="text-green-400">X</span>
-          </h1>
-          <p className="text-gray-400">Real-time system monitoring</p>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Activity className="text-emerald-400" size={28} />
+            <h1 className="text-3xl font-bold tracking-tight">
+              Monitor<span className="text-emerald-400">X</span>
+            </h1>
+          </div>
+          <p className="text-sm text-gray-500">Real-time system monitoring</p>
         </div>
 
-        <div className="bg-[#111827] p-8 rounded-xl border border-[#1F2937]">
-          <h2 className="text-2xl font-semibold mb-6">Create Account</h2>
+        <div className="bg-[#0d1117] p-6 rounded-xl border border-gray-800">
+          <h2 className="text-lg font-semibold mb-5">Create Account</h2>
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Email</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0B0F17] border border-[#1F2937] rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="form-input"
                 placeholder="you@example.com"
                 required
               />
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Password</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0B0F17] border border-[#1F2937] rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="form-input"
                 placeholder="••••••••"
                 required
                 minLength={6}
               />
             </div>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">
-                Confirm Password
-              </label>
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Confirm Password</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-[#0B0F17] border border-[#1F2937] rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="form-input"
                 placeholder="••••••••"
                 required
               />
@@ -94,16 +96,16 @@ function Signup() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-400 hover:bg-green-500 text-[#0B0F17] font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-emerald-400 hover:bg-emerald-300 text-gray-900 font-semibold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
-              {loading ? "Creating account..." : "Sign Up"}
+              {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
-          <p className="text-center text-gray-400 mt-6">
+          <p className="text-center text-gray-500 text-sm mt-5">
             Already have an account?{" "}
-            <Link to="/login" className="text-green-400 hover:underline">
-              Login
+            <Link to="/login" className="text-emerald-400 hover:underline">
+              Sign in
             </Link>
           </p>
         </div>

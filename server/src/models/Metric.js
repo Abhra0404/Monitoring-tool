@@ -9,24 +9,37 @@ const metricSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    serverId: {
-      type: String,
+    name: { 
+      type: String, 
       required: true,
       index: true,
+    }, // E.g. "cpu_usage", "memory_available_bytes"
+    labels: {
+      type: Map,
+      of: String,
+      default: {},
+    }, // Multi-dimensional key-value pairs e.g. { "host": "server-1", "env": "prod" }
+    value: { 
+      type: Number, 
+      required: true 
     },
-    cpu: Number,
-    totalMem: Number,
-    freeMem: Number,
-    uptime: Number,
-    timestamp: { type: Date, default: Date.now },
+    timestamp: { 
+      type: Date, 
+      default: Date.now 
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    timeseries: {
+      timeField: 'timestamp',
+      metaField: 'labels',
+      granularity: 'seconds',
+    },
+    expireAfterSeconds: 604800, // Auto-delete metrics older than 7 days
+  }
 );
 
-// Compound index for efficient queries
-metricSchema.index({ userId: 1, serverId: 1, timestamp: -1 });
-
-// TTL index - automatically delete metrics older than 7 days
-metricSchema.index({ timestamp: 1 }, { expireAfterSeconds: 604800 });
+// Compound index for efficient querying by user, name, and time
+metricSchema.index({ userId: 1, name: 1, timestamp: -1 });
 
 module.exports = mongoose.model("Metric", metricSchema);

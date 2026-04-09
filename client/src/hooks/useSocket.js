@@ -1,99 +1,83 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import { API_BASE_URL } from "../services/api";
 
-function useSocket(selectedServerId, alertRules) {
+function useSocket(selectedServerId) {
   const [liveData, setLiveData] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const lastAlertRef = useRef({});
+  const [connected, setConnected] = useState(false);
+  const [allServerMetrics, setAllServerMetrics] = useState({}); // serverId → latest metrics
+  const socketRef = useRef(null);
 
-  const socket = useMemo(() => {
+  // Create socket once
+  useEffect(() => {
     const token = localStorage.getItem("token");
-    return io(API_BASE_URL, {
+    if (!token) return;
+
+    const socket = io(API_BASE_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: Infinity,
     });
+
+    socketRef.current = socket;
+
+    socket.on("connect", () => setConnected(true));
+    socket.on("disconnect", () => setConnected(false));
+
+    // All metrics — update overview map regardless of selected server
+    socket.on("metrics", (data) => {
+      setAllServerMetrics((prev) => ({
+        ...prev,
+        [data.serverId]: data,
+      }));
+    });
+
+    // Server-side alert notifications
+    socket.on("alert:fired", (alert) => {
+      setAlerts((prev) => [alert, ...prev].slice(0, 50));
+    });
+
+    socket.on("alert:resolved", (alert) => {
+      setAlerts((prev) =>
+        prev.map((a) =>
+          a.id === alert.id ? { ...a, status: "resolved", message: alert.message } : a
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, []);
 
+  // Filter live data for selected server
   useEffect(() => {
-    const onConnect = () => undefined;
-    const onDisconnect = () => undefined;
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
+    if (!socketRef.current) return;
 
+    const onMetrics = (data) => {
+      if (!selectedServerId || data.serverId !== selectedServerId) return;
+      setLiveData((prev) => [...prev.slice(-300), data]);
+    };
+
+    socketRef.current.on("metrics", onMetrics);
     return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.disconnect();
+      socketRef.current?.off("metrics", onMetrics);
     };
-  }, [socket]);
+  }, [selectedServerId]);
 
-  useEffect(() => {
-    const onMetrics = (newData) => {
-      if (!selectedServerId || newData.serverId !== selectedServerId) {
-        return;
-      }
-
-      setLiveData((prev) => [...prev.slice(-200), newData]);
-
-      const cpuPercent = Math.min(100, (newData.cpu || 0) * 10);
-      const memoryPercent = newData.totalMem
-        ? ((newData.totalMem - newData.freeMem) / newData.totalMem) * 100
-        : 0;
-
-      const nextAlerts = [];
-
-      if (cpuPercent > alertRules.cpuThreshold) {
-        nextAlerts.push({
-          type: "cpu",
-          message: `CPU ${cpuPercent.toFixed(1)}% exceeded threshold ${alertRules.cpuThreshold}% on ${newData.serverId}`,
-        });
-      }
-
-      if (memoryPercent > alertRules.memoryThreshold) {
-        nextAlerts.push({
-          type: "memory",
-          message: `Memory ${memoryPercent.toFixed(1)}% exceeded threshold ${alertRules.memoryThreshold}% on ${newData.serverId}`,
-        });
-      }
-
-      if (nextAlerts.length === 0) {
-        return;
-      }
-
-      setAlerts((prev) => {
-        const now = Date.now();
-        const filtered = nextAlerts.filter((alert) => {
-          const key = `${newData.serverId}:${alert.type}`;
-          const last = lastAlertRef.current[key] || 0;
-          if (now - last < 20000) {
-            return false;
-          }
-          lastAlertRef.current[key] = now;
-          return true;
-        });
-
-        if (filtered.length === 0) {
-          return prev;
-        }
-
-        return [...filtered, ...prev].slice(0, 20);
-      });
-    };
-
-    socket.on("metrics", onMetrics);
-
-    return () => {
-      socket.off("metrics", onMetrics);
-    };
-  }, [socket, selectedServerId, alertRules]);
-
-  const resetStream = () => {
+  const resetStream = useCallback(() => {
     setLiveData([]);
-    setAlerts([]);
-  };
+  }, []);
 
-  return { liveData, alerts, resetStream };
+  const clearAlerts = useCallback(() => {
+    setAlerts([]);
+  }, []);
+
+  return { liveData, alerts, connected, allServerMetrics, resetStream, clearAlerts };
 }
 
 export default useSocket;

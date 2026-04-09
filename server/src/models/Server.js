@@ -27,6 +27,10 @@ const serverSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    cpuCount: Number,
+    platform: String,
+    arch: String,
+    hostname: String,
   },
   { timestamps: true }
 );

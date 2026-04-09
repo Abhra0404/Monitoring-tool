@@ -1,3 +1,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#010409] text-gray-100 antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+  }
+}
+
+@layer components {
+  .form-input {
+    @apply w-full px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm text-gray-200
+    focus:outline-none focus:ring-1 focus:ring-emerald-400/50 focus:border-emerald-400/50
+    placeholder-gray-600 transition-colors;
+  }
+}

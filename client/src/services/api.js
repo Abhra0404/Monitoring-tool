@@ -14,31 +14,75 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Servers ────────────────────────────────────────────────────────────
 export async function fetchServers() {
-  const response = await apiClient.get("/api/servers");
-  return response.data;
+  const { data } = await apiClient.get("/api/servers");
+  return data;
+}
+
+export async function fetchServer(serverId) {
+  const { data } = await apiClient.get(`/api/servers/${serverId}`);
+  return data;
 }
 
 export async function fetchServerMetrics(serverId, timeRange = "5m") {
-  const response = await apiClient.get(`/api/servers/${serverId}/metrics`, {
+  const { data } = await apiClient.get(`/api/servers/${serverId}/metrics`, {
     params: { timeRange },
   });
-
-  return response.data;
+  return data;
 }
 
-export async function fetchAlertRule(serverId) {
-  const response = await apiClient.get(`/api/servers/${serverId}/alert-rules`);
-  return response.data;
+export async function updateServerName(serverId, name) {
+  const { data } = await apiClient.put(`/api/servers/${serverId}`, { name });
+  return data;
 }
 
-export async function updateAlertRule(serverId, payload) {
-  const response = await apiClient.put(
-    `/api/servers/${serverId}/alert-rules`,
-    payload
-  );
+export async function deleteServer(serverId) {
+  const { data } = await apiClient.delete(`/api/servers/${serverId}`);
+  return data;
+}
 
-  return response.data;
+// ── Alert Rules ────────────────────────────────────────────────────────
+export async function fetchAllAlertRules() {
+  const { data } = await apiClient.get("/api/alerts/rules");
+  return data;
+}
+
+export async function fetchServerAlertRules(serverId) {
+  const { data } = await apiClient.get(`/api/servers/${serverId}/alert-rules`);
+  return data;
+}
+
+export async function createAlertRule(payload) {
+  const { data } = await apiClient.post("/api/alerts/rules", payload);
+  return data;
+}
+
+export async function deleteAlertRule(ruleId) {
+  const { data } = await apiClient.delete(`/api/alerts/rules/${ruleId}`);
+  return data;
+}
+
+export async function toggleAlertRule(ruleId) {
+  const { data } = await apiClient.patch(`/api/alerts/rules/${ruleId}/toggle`);
+  return data;
+}
+
+// ── Alert History ──────────────────────────────────────────────────────
+export async function fetchAlertHistory(params = {}) {
+  const { data } = await apiClient.get("/api/alerts/history", { params });
+  return data;
+}
+
+export async function fetchActiveAlertCount() {
+  const { data } = await apiClient.get("/api/alerts/active-count");
+  return data.count;
+}
+
+// ── Health ──────────────────────────────────────────────────────────────
+export async function fetchHealth() {
+  const { data } = await apiClient.get("/health");
+  return data;
 }
 
 export { API_BASE_URL };

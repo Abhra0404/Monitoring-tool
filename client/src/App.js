@@ -2,17 +2,20 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import AppShell from "./AppShell";
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F17] text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+      <div className="min-h-screen bg-[#010409] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-400 border-t-transparent mx-auto mb-4" />
+          <p className="text-gray-500 text-sm">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -29,8 +32,8 @@ function PublicRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0B0F17] text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading...</p>
+      <div className="min-h-screen bg-[#010409] text-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-emerald-400 border-t-transparent" />
       </div>
     );
   }
@@ -47,22 +50,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <Dashboard />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/servers/:serverId"
-            element={
-              <PrivateRoute>
-                <Dashboard />
-              </PrivateRoute>
-            }
-          />
+          {/* Auth pages — no sidebar */}
           <Route
             path="/login"
             element={
@@ -79,11 +67,24 @@ function App() {
               </PublicRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* All app pages — wrapped in sidebar shell */}
+          <Route
+            path="/*"
+            element={
+              <PrivateRoute>
+                <AppShell />
+              </PrivateRoute>
+            }
+          />
         </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={4000}
+          hideProgressBar={false}
+          theme="dark"
+          toastClassName="!bg-[#161b22] !border !border-gray-800 !rounded-xl"
+        />
       </BrowserRouter>
-
-      <ToastContainer position="top-right" autoClose={3000} />
     </AuthProvider>
   );
 }
