@@ -3,136 +3,146 @@
 @theme {
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
   --color-red-accent: #ef4444;
   --color-red-glow: #dc2626;
-  --color-red-dim: #991b1b;
-  --color-red-muted: rgba(239, 68, 68, 0.15);
-  --color-surface: #0a0a0a;
-  --color-surface-2: #111111;
-  --color-surface-3: #1a1a1a;
-  --color-border-dim: #1f1f1f;
-  --color-border: #2a2a2a;
-  --color-text-primary: #f5f5f5;
-  --color-text-secondary: #a3a3a3;
-  --color-text-muted: #525252;
+  --color-red-bright: #f87171;
+  --color-red-muted: rgba(239, 68, 68, 0.12);
+
+  --color-surface: #050505;
+  --color-surface-raised: #0a0a0a;
+  --color-surface-card: #0f0f0f;
+  --color-surface-overlay: #141414;
+
+  --color-stroke: #1a1a1a;
+  --color-stroke-light: #252525;
+
+  --color-fg: #fafafa;
+  --color-fg-secondary: #a1a1a1;
+  --color-fg-muted: #525252;
+  --color-fg-dim: #333333;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* ── Base ─────────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
   background: #000;
-  color: var(--color-text-primary);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-/* Glow animation for hero */
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
+::selection {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fff;
 }
 
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #000; }
+::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
+
+/* ── Hero gradient mesh ───────────────────────────────── */
+.hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(239, 68, 68, 0.15), transparent),
+    radial-gradient(ellipse 60% 40% at 20% 60%, rgba(220, 38, 38, 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(248, 113, 113, 0.04), transparent);
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* ── Grid dot pattern ─────────────────────────────────── */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-@keyframes typewriter {
-  from { width: 0; }
-  to { width: 100%; }
+/* ── Glow elements ────────────────────────────────────── */
+.glow-red {
+  box-shadow:
+    0 0 20px rgba(239, 68, 68, 0.15),
+    0 0 60px rgba(239, 68, 68, 0.05);
 }
 
-@keyframes blink {
+.glow-red-strong {
+  box-shadow:
+    0 0 30px rgba(239, 68, 68, 0.2),
+    0 0 80px rgba(239, 68, 68, 0.08),
+    0 0 120px rgba(239, 68, 68, 0.04);
+}
+
+/* ── Code block styling ───────────────────────────────── */
+.code-block {
+  background: linear-gradient(180deg, #0a0a0a 0%, #080808 100%);
+  border: 1px solid var(--color-stroke);
+}
+
+/* ── Feature card hover ───────────────────────────────── */
+.feature-card {
+  background: linear-gradient(180deg, var(--color-surface-card) 0%, var(--color-surface) 100%);
+  border: 1px solid var(--color-stroke);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature-card:hover {
+  border-color: rgba(239, 68, 68, 0.25);
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.06);
+  transform: translateY(-2px);
+}
+
+/* ── Typing cursor ────────────────────────────────────── */
+@keyframes blink-caret {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+.cursor-blink {
+  animation: blink-caret 1s step-end infinite;
 }
 
-@keyframes chart-draw {
-  from { stroke-dashoffset: 200; }
+/* ── Smooth reveal for chart ──────────────────────────── */
+@keyframes draw-line {
+  from { stroke-dashoffset: 600; }
   to { stroke-dashoffset: 0; }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.8s ease-out both;
+.chart-line {
+  stroke-dasharray: 600;
+  animation: draw-line 2.5s ease-out forwards;
 }
 
-.animate-slide-up-delay-1 {
-  animation: slide-up 0.8s ease-out 0.15s both;
+/* ── Pulse ring ───────────────────────────────────────── */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
 
-.animate-slide-up-delay-2 {
-  animation: slide-up 0.8s ease-out 0.3s both;
-}
-
-.animate-slide-up-delay-3 {
-  animation: slide-up 0.8s ease-out 0.45s both;
-}
-
-.animate-fade-in {
-  animation: fade-in 1s ease-out both;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 4s ease-in-out infinite;
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-chart-draw {
-  stroke-dasharray: 200;
-  animation: chart-draw 2s ease-out both;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #000; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
-
-/* Terminal glow effect */
-.terminal-glow {
-  box-shadow: 0 0 60px rgba(239, 68, 68, 0.08), 0 0 120px rgba(239, 68, 68, 0.04);
-}
-
-.terminal-glow:hover {
-  box-shadow: 0 0 80px rgba(239, 68, 68, 0.12), 0 0 160px rgba(239, 68, 68, 0.06);
-}
-
-/* Grid pattern background */
-.grid-bg {
-  background-image:
-    linear-gradient(rgba(239, 68, 68, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(239, 68, 68, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
-/* Noise overlay */
-.noise-overlay::before {
+.pulse-ring::before {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* ── Horizontal scroll for metrics ────────────────────── */
+.metrics-scroll {
+  mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+}
+
+@keyframes scroll-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.scroll-animate {
+  animation: scroll-left 30s linear infinite;
 }
