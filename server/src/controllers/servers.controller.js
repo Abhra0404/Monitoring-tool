@@ -1,17 +1,15 @@
-const Server = require("../models/Server");
-const Metric = require("../models/Metric");
+const { Servers, Metrics } = require("../store");
 
 // Get all servers for a user
 exports.getServers = async (req, res) => {
   try {
-    const servers = await Server.find({ userId: req.user._id })
-      .sort({ lastSeen: -1 })
-      .lean();
+    const servers = Servers.find(req.user._id);
 
-    // Mark servers as offline if not seen in 60 seconds
+    // Mark servers as offline if not seen in 60 seconds (persist the change)
     const now = Date.now();
     for (const s of servers) {
       if (now - new Date(s.lastSeen).getTime() > 60000 && s.status !== "offline") {
+        Servers.update(req.user._id, s.serverId, { status: "offline" });
         s.status = "offline";
       }
     }
@@ -27,11 +25,7 @@ exports.getServers = async (req, res) => {
 exports.getServer = async (req, res) => {
   try {
     const { serverId } = req.params;
-
-    const server = await Server.findOne({
-      userId: req.user._id,
-      serverId,
-    }).lean();
+    const server = Servers.findOne(req.user._id, serverId);
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -50,51 +44,26 @@ exports.getServerMetrics = async (req, res) => {
     const { serverId } = req.params;
     const { timeRange = "5m" } = req.query;
 
-    const now = new Date();
+    const now = Date.now();
     let startTime;
-    let maxPoints = 300; // Target data points for smooth charts
+    let maxPoints = 300;
 
     switch (timeRange) {
-      case "5m":
-        startTime = new Date(now.getTime() - 5 * 60 * 1000);
-        maxPoints = 150;
-        break;
-      case "15m":
-        startTime = new Date(now.getTime() - 15 * 60 * 1000);
-        maxPoints = 180;
-        break;
-      case "1h":
-        startTime = new Date(now.getTime() - 60 * 60 * 1000);
-        maxPoints = 240;
-        break;
-      case "6h":
-        startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-        maxPoints = 360;
-        break;
-      case "24h":
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        maxPoints = 480;
-        break;
-      case "7d":
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        maxPoints = 500;
-        break;
-      default:
-        startTime = new Date(now.getTime() - 5 * 60 * 1000);
+      case "5m":  startTime = now - 5 * 60 * 1000; maxPoints = 150; break;
+      case "15m": startTime = now - 15 * 60 * 1000; maxPoints = 180; break;
+      case "1h":  startTime = now - 60 * 60 * 1000; maxPoints = 240; break;
+      case "6h":  startTime = now - 6 * 60 * 60 * 1000; maxPoints = 360; break;
+      case "24h": startTime = now - 24 * 60 * 60 * 1000; maxPoints = 480; break;
+      case "7d":  startTime = now - 7 * 24 * 60 * 60 * 1000; maxPoints = 500; break;
+      default:    startTime = now - 5 * 60 * 1000;
     }
 
-    const rawMetrics = await Metric.find({
-      userId: req.user._id,
-      "labels.host": serverId,
-      timestamp: { $gte: startTime },
-    })
-      .sort({ timestamp: 1 })
-      .lean();
+    const rawMetrics = Metrics.find(req.user._id, serverId, startTime);
 
     // Group metrics by timestamp into flat records
     const grouped = {};
     for (const m of rawMetrics) {
-      const timeMs = m.timestamp.getTime();
+      const timeMs = m.timestamp;
       if (!grouped[timeMs]) {
         grouped[timeMs] = { timestamp: timeMs };
       }
@@ -103,12 +72,10 @@ exports.getServerMetrics = async (req, res) => {
 
     let metrics = Object.values(grouped).sort((a, b) => a.timestamp - b.timestamp);
 
-    // Downsample if too many points — average within time buckets
     if (metrics.length > maxPoints) {
       metrics = downsample(metrics, maxPoints);
     }
 
-    // Map to frontend-friendly format
     const result = metrics.map((m) => ({
       timestamp: m.timestamp,
       cpu: m.cpu_usage,
@@ -152,7 +119,6 @@ function downsample(data, targetPoints) {
         }
       }
     }
-    // Use middle bucket's timestamp for accuracy
     avg.timestamp = bucket[Math.floor(count / 2)].timestamp;
     result.push(avg);
   }
@@ -166,11 +132,7 @@ exports.updateServer = async (req, res) => {
     const { serverId } = req.params;
     const { name } = req.body;
 
-    const server = await Server.findOneAndUpdate(
-      { userId: req.user._id, serverId },
-      { name },
-      { new: true }
-    );
+    const server = Servers.update(req.user._id, serverId, { name });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -188,16 +150,13 @@ exports.deleteServer = async (req, res) => {
   try {
     const { serverId } = req.params;
 
-    const server = await Server.findOneAndDelete({
-      userId: req.user._id,
-      serverId,
-    });
+    const server = Servers.delete(req.user._id, serverId);
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
     }
 
-    await Metric.deleteMany({ userId: req.user._id, "labels.host": serverId });
+    Metrics.deleteByHost(req.user._id, serverId);
 
     res.json({ message: "Server deleted successfully" });
   } catch (error) {

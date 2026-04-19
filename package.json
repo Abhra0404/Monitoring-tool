@@ -1,22 +1,37 @@
 {
-  "name": "monitorx-cli",
-  "version": "1.0.0",
-  "description": "Self-hosted system monitoring — one command, full dashboard. npx monitorx-cli to start.",
+  "name": "theoria-cli",
+  "version": "1.0.2",
+  "description": "Self-hosted system monitoring — one command, full dashboard. npx theoria-cli to start.",
   "bin": {
-    "monitorx-cli": "./bin/monitorx.js"
+    "theoria-cli": "./bin/theoria.js"
   },
   "files": [
     "bin/",
     "server/src/",
     "server/package.json",
-    "client/build/"
+    "client/build/",
+    "agent/cmd/",
+    "agent/internal/",
+    "agent/go.mod",
+    "agent/theoria-agent",
+    "agent/bin/"
   ],
   "scripts": {
-    "start": "node bin/monitorx.js",
-    "build:client": "cd client && npm install && REACT_APP_API_URL= npm run build",
+    "start": "node bin/theoria.js",
+    "build:client": "cd client && npm install --legacy-peer-deps && VITE_API_URL= npm run build",
     "prepublishOnly": "npm run build:client"
   },
-  "keywords": ["monitoring", "dashboard", "devops", "self-hosted", "server-monitoring", "cli", "grafana-alternative", "system-monitor", "real-time"],
+  "keywords": [
+    "monitoring",
+    "dashboard",
+    "devops",
+    "self-hosted",
+    "server-monitoring",
+    "cli",
+    "grafana-alternative",
+    "system-monitor",
+    "real-time"
+  ],
   "author": "Abhra0404",
   "license": "ISC",
   "repository": {
@@ -28,12 +43,12 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "axios": "^1.15.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.3.1",
     "socket.io": "^4.8.3",
     "uuid": "^13.0.0"
   }

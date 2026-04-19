@@ -1,20 +1,11 @@
-const AlertRule = require("../models/AlertRule");
-const AlertHistory = require("../models/AlertHistory");
+const { AlertRules, AlertHistory } = require("../store");
+const { dispatchAlert } = require("./notifier");
 
 // In-memory state for duration-based alerting
-// Key: `${ruleId}` → { firstBreachAt: Date, lastBreachValue: Number }
 const breachState = new Map();
 
-/**
- * Evaluate all active alert rules for a user against incoming metrics.
- * Called every time the agent pushes metrics.
- *
- * @param {string} userId
- * @param {Object} metricsMap  – { metricName: { value, labels } }
- * @returns {Array} fired alerts to broadcast
- */
 async function evaluateAlerts(userId, metricsMap) {
-  const rules = await AlertRule.find({ userId, isActive: true }).lean();
+  const rules = AlertRules.find({ userId, isActive: true });
   if (rules.length === 0) return [];
 
   const firedAlerts = [];
@@ -24,7 +15,7 @@ async function evaluateAlerts(userId, metricsMap) {
     if (!metricEntry) continue;
 
     // Check label match
-    if (rule.labels && rule.labels.size > 0) {
+    if (rule.labels && Object.keys(rule.labels).length > 0) {
       const ruleLabels = rule.labels instanceof Map ? Object.fromEntries(rule.labels) : rule.labels;
       const metricLabels = metricEntry.labels || {};
       let match = true;
@@ -39,7 +30,7 @@ async function evaluateAlerts(userId, metricsMap) {
 
     const value = metricEntry.value;
     const breached = evaluateCondition(value, rule.operator, rule.threshold);
-    const stateKey = rule._id.toString();
+    const stateKey = rule._id;
 
     if (breached) {
       const now = Date.now();
@@ -47,25 +38,22 @@ async function evaluateAlerts(userId, metricsMap) {
 
       if (!state) {
         breachState.set(stateKey, { firstBreachAt: now, lastBreachValue: value });
-        // If durationMinutes is 0 or not set, fire immediately
         if (!rule.durationMinutes || rule.durationMinutes <= 0) {
-          const alert = await fireAlert(rule, userId, value);
+          const alert = fireAlert(rule, userId, value);
           if (alert) firedAlerts.push(alert);
         }
       } else {
         state.lastBreachValue = value;
         const elapsedMin = (now - state.firstBreachAt) / 60000;
         if (elapsedMin >= (rule.durationMinutes || 0)) {
-          const alert = await fireAlert(rule, userId, value);
+          const alert = fireAlert(rule, userId, value);
           if (alert) firedAlerts.push(alert);
-          // Reset so we don't spam — leave state, resolveAlert will clean up
         }
       }
     } else {
-      // Condition no longer breached — resolve any open alerts
       if (breachState.has(stateKey)) {
         breachState.delete(stateKey);
-        await resolveAlert(rule, userId);
+        resolveAlert(rule, userId);
       }
     }
   }
@@ -84,19 +72,18 @@ function evaluateCondition(value, operator, threshold) {
   }
 }
 
-async function fireAlert(rule, userId, actualValue) {
-  // Deduplicate — don't fire if already firing for this rule
-  const existing = await AlertHistory.findOne({
-    ruleId: rule._id,
-    status: "firing",
-  });
+function fireAlert(rule, userId, actualValue) {
+  // Deduplicate
+  const existing = AlertHistory.findFiring(rule._id);
   if (existing) return null;
 
   const severity = determineSeverity(rule, actualValue);
   const labels = rule.labels instanceof Map ? Object.fromEntries(rule.labels) : (rule.labels || {});
   const host = labels.host || "unknown";
+  const actualNum = Number(actualValue);
+  const displayValue = Number.isFinite(actualNum) ? actualNum.toFixed(1) : String(actualValue);
 
-  const alert = await AlertHistory.create({
+  const alert = AlertHistory.create({
     userId,
     ruleId: rule._id,
     ruleName: rule.name,
@@ -107,7 +94,7 @@ async function fireAlert(rule, userId, actualValue) {
     actualValue,
     severity,
     status: "firing",
-    message: `${rule.name}: ${formatMetricName(rule.metricName)} is ${actualValue.toFixed(1)} (threshold: ${rule.operator} ${rule.threshold}) on ${host}`,
+    message: `${rule.name}: ${formatMetricName(rule.metricName)} is ${displayValue} (threshold: ${rule.operator} ${rule.threshold}) on ${host}`,
   });
 
   return {
@@ -123,18 +110,22 @@ async function fireAlert(rule, userId, actualValue) {
   };
 }
 
-async function resolveAlert(rule, userId) {
-  const alert = await AlertHistory.findOneAndUpdate(
-    { ruleId: rule._id, userId, status: "firing" },
-    { status: "resolved", resolvedAt: new Date() },
-    { new: true }
-  );
-  if (alert && global.io) {
-    global.io.to(`user:${userId}`).emit("alert:resolved", {
-      id: alert._id,
-      ruleName: alert.ruleName,
+function resolveAlert(rule, userId) {
+  const alert = AlertHistory.resolve(rule._id, userId);
+  if (alert) {
+    if (global.io) {
+      global.io.to("all").emit("alert:resolved", {
+        id: alert._id,
+        ruleName: alert.ruleName,
+        message: `Resolved: ${alert.ruleName}`,
+      });
+    }
+    dispatchAlert(userId, {
+      ...alert,
       message: `Resolved: ${alert.ruleName}`,
-    });
+    }, "resolved").catch((err) =>
+      console.error("Resolve notification error:", err.message)
+    );
   }
 }
 

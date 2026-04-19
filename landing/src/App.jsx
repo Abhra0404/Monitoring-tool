@@ -214,8 +214,8 @@ function Hero() {
               <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-red-accent/40 via-red-glow/20 to-red-accent/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm" />
               <div className="relative flex items-center gap-3 px-6 sm:px-8 py-4 rounded-2xl bg-surface-card border border-stroke-light font-mono text-base sm:text-lg glow-red">
                 <span className="text-red-accent font-bold">$</span>
-                <span className="text-fg">npx monitorx-cli</span>
-                <CopyBtn text="npx monitorx-cli" className="ml-2" />
+                <span className="text-fg">npx theoria-cli</span>
+                <CopyBtn text="npx theoria-cli" className="ml-2" />
               </div>
             </div>
             <p className="mt-4 text-xs text-fg-muted flex items-center gap-1.5">
@@ -311,7 +311,7 @@ function DashboardPreview() {
               <div className="w-3 h-3 rounded-full bg-[#28c840]" />
             </div>
             <div className="flex-1 text-center">
-              <span className="text-xs text-fg-muted font-mono">MonitorX — localhost:4000</span>
+              <span className="text-xs text-fg-muted font-mono">Theoria — localhost:4000</span>
             </div>
             <div className="w-[52px]" />
           </div>
@@ -450,7 +450,7 @@ const FEATURES = [
   {
     icon: Terminal,
     title: "One Command Setup",
-    description: "npx monitorx-cli — starts the server, opens the dashboard, and walks you through setup on first run.",
+    description: "npx theoria-cli — starts the server, opens the dashboard, and walks you through setup on first run.",
   },
   {
     icon: Container,
@@ -525,7 +525,7 @@ function QuickStart() {
   const steps = [
     {
       num: "01",
-      title: "Start MonitorX",
+      title: "Start Theoria",
       desc: "Clone and run — setup is fully interactive on first launch.",
       code: "git clone https://github.com/Abhra0404/Monitoring-tool.git\ncd Monitoring-tool\nnpm start",
     },
@@ -649,7 +649,7 @@ function Architecture() {
                 <div className="w-8 h-8 rounded-lg bg-red-accent flex items-center justify-center">
                   <Activity size={16} className="text-white" strokeWidth={2.5} />
                 </div>
-                MonitorX Server
+                Theoria Server
               </div>
               <div className="text-xs text-fg-muted mt-1">Single process, single port</div>
             </div>
@@ -785,8 +785,8 @@ function CTA() {
             <div className="absolute -inset-[2px] rounded-2xl bg-gradient-to-r from-red-accent/50 via-red-glow/30 to-red-accent/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur" />
             <div className="relative flex items-center gap-4 px-8 py-5 rounded-2xl bg-surface-card border border-stroke-light font-mono text-lg glow-red-strong">
               <span className="text-red-accent font-bold">$</span>
-              <span className="text-fg">npx monitorx-cli</span>
-              <CopyBtn text="npx monitorx-cli" />
+              <span className="text-fg">npx theoria-cli</span>
+              <CopyBtn text="npx theoria-cli" />
             </div>
           </div>
 
@@ -830,7 +830,7 @@ function Footer() {
             <Activity size={12} className="text-white" strokeWidth={2.5} />
           </div>
           <span className="text-sm text-fg-muted">
-            MonitorX — Open-source system monitoring
+            Theoria — Open-source system monitoring
           </span>
         </div>
         <div className="flex items-center gap-6 text-sm text-fg-muted">

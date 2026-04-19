@@ -3,21 +3,28 @@ import {
   LayoutDashboard,
   Server,
   Bell,
+  BellRing,
   Settings,
   Activity,
-  LogOut,
+  Globe,
+  Globe2,
+  GitBranch,
+  Box,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
   { path: "/", icon: LayoutDashboard, label: "Overview" },
+  { path: "/http-checks", icon: Globe, label: "HTTP Checks" },
+  { path: "/pipelines", icon: GitBranch, label: "Pipelines" },
+  { path: "/docker", icon: Box, label: "Docker" },
   { path: "/alerts", icon: Bell, label: "Alerts" },
+  { path: "/notifications", icon: BellRing, label: "Notifications" },
+  { path: "/status-page", icon: Globe2, label: "Status Page" },
   { path: "/settings", icon: Settings, label: "Settings" },
 ];
 
 function Sidebar({ servers = [], selectedServerId, onSelectServer, alertCount = 0 }) {
   const location = useLocation();
-  const { logout } = useAuth();
 
   const statusColor = (status) => {
     if (status === "online") return "bg-emerald-400";
@@ -116,14 +123,7 @@ function Sidebar({ servers = [], selectedServerId, onSelectServer, alertCount = 
 
       {/* Footer */}
       <div className="p-3 border-t border-gray-800">
-        <button
-          type="button"
-          onClick={logout}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-red-400/5 transition-all"
-        >
-          <LogOut size={16} />
-          <span>Logout</span>
-        </button>
+        <p className="px-3 py-2 text-xs text-gray-500">Single-user local mode</p>
       </div>
     </aside>
   );

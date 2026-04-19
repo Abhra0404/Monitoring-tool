@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Key, Copy, RefreshCw, Shield, Terminal } from "lucide-react";
 import { toast } from "react-toastify";
 import PageHeader from "../components/PageHeader";
-import { useAuth } from "../context/AuthContext";
+import { fetchCurrentUser, regenerateApiKey } from "../services/api";
 
 function Settings() {
-  const { user, regenerateApiKey } = useAuth();
+  const [user, setUser] = useState(null);
   const [showKey, setShowKey] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+
+  useEffect(() => {
+    fetchCurrentUser().then(setUser).catch(() => {});
+  }, []);
 
   const copyApiKey = () => {
     if (user?.apiKey) {
@@ -21,11 +25,12 @@ function Settings() {
       return;
     }
     setRegenerating(true);
-    const result = await regenerateApiKey();
-    if (result.success) {
+    try {
+      const result = await regenerateApiKey();
+      setUser((prev) => ({ ...(prev || {}), apiKey: result.apiKey }));
       toast.success("API key regenerated");
-    } else {
-      toast.error(result.error);
+    } catch {
+      toast.error("Failed to regenerate API key");
     }
     setRegenerating(false);
   };
@@ -103,7 +108,7 @@ function Settings() {
           </div>
           <div>
             <h3 className="text-sm font-medium text-gray-200">Agent Setup</h3>
-            <p className="text-xs text-gray-500">Quick guide to install the MonitorX agent</p>
+            <p className="text-xs text-gray-500">Quick guide to install the Theoria agent</p>
           </div>
         </div>
 
@@ -118,7 +123,7 @@ function Settings() {
             <CodeBlock code="npm start" />
           </Step>
           <Step num={4} title="Docker (alternative)">
-            <CodeBlock code={`docker build -t monitorx-agent ./agent\ndocker run -e API_KEY=${user?.apiKey || "your-key"} -e API_URL=http://host:5000 -e SERVER_ID=my-server monitorx-agent`} />
+            <CodeBlock code={`docker build -t theoria-agent ./agent\ndocker run -e API_KEY=${user?.apiKey || "your-key"} -e API_URL=http://host:5000 -e SERVER_ID=my-server theoria-agent`} />
           </Step>
         </div>
       </div>

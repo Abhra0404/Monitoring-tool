@@ -1,25 +1,17 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const { Users, systemUser } = require("../store");
 
-// JWT authentication middleware
+// Internal single-user middleware for dashboard/API routes
 exports.authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+    const user = systemUser || Users.findByEmail("system@theoria.local");
+    if (!user) {
+      return res.status(500).json({ error: "System user not initialized" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.userId).select("-password");
-
-    if (!req.user) {
-      return res.status(401).json({ error: "User not found" });
-    }
-
+    req.user = { ...user, password: undefined };
     next();
   } catch (error) {
-    return res.status(403).json({ error: "Invalid or expired token" });
+    return res.status(500).json({ error: "Authentication error" });
   }
 };
 
@@ -32,13 +24,13 @@ exports.authenticateApiKey = async (req, res, next) => {
       return res.status(401).json({ error: "No API key provided" });
     }
 
-    const user = await User.findOne({ apiKey });
+    const user = Users.findByApiKey(apiKey);
 
     if (!user) {
       return res.status(401).json({ error: "Invalid API key" });
     }
 
-    req.user = user;
+    req.user = { ...user, password: undefined };
     next();
   } catch (error) {
     return res.status(500).json({ error: "Authentication error" });

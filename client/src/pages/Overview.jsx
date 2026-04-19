@@ -79,7 +79,7 @@ function Overview({ allServerMetrics, connected }) {
           <Server size={48} className="mx-auto mb-4 text-gray-600" />
           <h3 className="text-lg font-medium mb-2">No Servers Connected</h3>
           <p className="text-gray-500 text-sm mb-4">
-            Install and run the MonitorX agent on your servers to start monitoring.
+            Install and run the Theoria agent on your servers to start monitoring.
           </p>
           <div className="bg-gray-900 rounded-lg p-4 max-w-md mx-auto text-left">
             <p className="text-xs text-gray-500 mb-2">Quick start:</p>

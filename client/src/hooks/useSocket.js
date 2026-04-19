@@ -7,15 +7,14 @@ function useSocket(selectedServerId) {
   const [alerts, setAlerts] = useState([]);
   const [connected, setConnected] = useState(false);
   const [allServerMetrics, setAllServerMetrics] = useState({}); // serverId → latest metrics
+  const [httpCheckResults, setHttpCheckResults] = useState({}); // checkId → latest result
+  const [pipelineUpdates, setPipelineUpdates] = useState([]); // latest pipeline events
+  const [dockerMetrics, setDockerMetrics] = useState({}); // serverId → containers array
   const socketRef = useRef(null);
 
   // Create socket once
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
     const socket = io(API_BASE_URL, {
-      auth: { token },
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
@@ -48,6 +47,24 @@ function useSocket(selectedServerId) {
       );
     });
 
+    socket.on("httpcheck:result", (result) => {
+      setHttpCheckResults((prev) => ({
+        ...prev,
+        [result.checkId]: result,
+      }));
+    });
+
+    socket.on("pipeline:update", (pipeline) => {
+      setPipelineUpdates((prev) => [pipeline, ...prev].slice(0, 50));
+    });
+
+    socket.on("docker:metrics", (data) => {
+      setDockerMetrics((prev) => ({
+        ...prev,
+        [data.serverId]: data.containers,
+      }));
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -77,7 +94,7 @@ function useSocket(selectedServerId) {
     setAlerts([]);
   }, []);
 
-  return { liveData, alerts, connected, allServerMetrics, resetStream, clearAlerts };
+  return { liveData, alerts, connected, allServerMetrics, httpCheckResults, pipelineUpdates, dockerMetrics, resetStream, clearAlerts };
 }
 
 export default useSocket;

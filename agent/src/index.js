@@ -1,21 +1,39 @@
 const os = require("os");
 const fs = require("fs");
+const http = require("http");
 const axios = require("axios");
-require("dotenv").config();
 
-const SERVER_ID = process.env.SERVER_ID || os.hostname();
-const API_URL = process.env.API_URL || "http://localhost:5000";
-const API_KEY = process.env.API_KEY;
-const INTERVAL_MS = Number(process.env.INTERVAL_MS) || 5000;
+// Support both .env file and CLI args / environment variables
+try { require("dotenv").config(); } catch {}
+
+// Parse CLI args: --url, --key, --id, --interval
+const cliArgs = {};
+const argv = process.argv.slice(2);
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === "--url" && argv[i + 1]) cliArgs.url = argv[++i];
+  else if (argv[i] === "--key" && argv[i + 1]) cliArgs.key = argv[++i];
+  else if (argv[i] === "--id" && argv[i + 1]) cliArgs.id = argv[++i];
+  else if (argv[i] === "--interval" && argv[i + 1]) cliArgs.interval = argv[++i];
+  else if (argv[i] === "--docker") cliArgs.docker = true;
+}
+
+const SERVER_ID = cliArgs.id || process.env.SERVER_ID || os.hostname();
+const API_URL = cliArgs.url || process.env.API_URL || "http://localhost:4000";
+const API_KEY = cliArgs.key || process.env.API_KEY;
+const INTERVAL_MS = Number(cliArgs.interval || process.env.INTERVAL_MS) || 5000;
+const DOCKER_ENABLED = cliArgs.docker || process.env.DOCKER === "true";
+const DOCKER_SOCKET = process.env.DOCKER_SOCKET || "/var/run/docker.sock";
 
 console.log(`Agent starting for server: ${SERVER_ID}`);
 console.log(`Sending metrics to: ${API_URL}`);
 console.log(`Collection interval: ${INTERVAL_MS}ms`);
+if (DOCKER_ENABLED) console.log(`Docker monitoring: enabled (${DOCKER_SOCKET})`);
 
 if (!API_KEY) {
-  console.error("ERROR: API_KEY not found in .env file");
-  console.error("Please add your API key to the .env file:");
-  console.error("API_KEY=your-api-key-here");
+  console.error("ERROR: API_KEY not provided");
+  console.error("Provide via CLI args or .env file:");
+  console.error("  npx theoria-cli agent --url http://server:4000 --key <your-key>");
+  console.error("  or set API_KEY in .env file");
   process.exit(1);
 }
 
@@ -111,6 +129,83 @@ function getDiskUsage() {
   }
 }
 
+// ── Docker container metrics (optional) ───────────────────────────────
+function dockerApiGet(path) {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(DOCKER_SOCKET)) {
+      return reject(new Error("Docker socket not found"));
+    }
+    const req = http.get({ socketPath: DOCKER_SOCKET, path }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error("Invalid Docker API response")); }
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(5000, () => { req.destroy(new Error("Docker API timeout")); });
+  });
+}
+
+function calculateCpuPercent(stats) {
+  const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+  const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+  const numCpus = stats.cpu_stats.online_cpus || stats.cpu_stats.cpu_usage.percpu_usage?.length || 1;
+  if (systemDelta > 0 && cpuDelta >= 0) {
+    return (cpuDelta / systemDelta) * numCpus * 100;
+  }
+  return 0;
+}
+
+async function collectDockerMetrics() {
+  if (!DOCKER_ENABLED) return null;
+  try {
+    const containers = await dockerApiGet("/containers/json?all=true");
+    const results = [];
+    for (const c of containers) {
+      const container = {
+        containerId: c.Id?.slice(0, 12),
+        name: (c.Names?.[0] || "").replace(/^\//, ""),
+        image: c.Image,
+        status: c.Status,
+        state: c.State,
+        restarts: 0,
+        cpuPercent: 0,
+        memUsage: 0,
+        memLimit: 0,
+        memPercent: 0,
+        netRx: 0,
+        netTx: 0,
+      };
+
+      // Only get stats for running containers
+      if (c.State === "running") {
+        try {
+          const stats = await dockerApiGet(`/containers/${c.Id}/stats?stream=false`);
+          container.cpuPercent = Math.round(calculateCpuPercent(stats) * 100) / 100;
+          container.memUsage = stats.memory_stats?.usage || 0;
+          container.memLimit = stats.memory_stats?.limit || 0;
+          container.memPercent = container.memLimit > 0
+            ? Math.round((container.memUsage / container.memLimit) * 10000) / 100
+            : 0;
+          // Network I/O
+          const networks = stats.networks || {};
+          for (const iface of Object.values(networks)) {
+            container.netRx += iface.rx_bytes || 0;
+            container.netTx += iface.tx_bytes || 0;
+          }
+        } catch {}
+      }
+
+      results.push(container);
+    }
+    return results;
+  } catch {
+    return null;
+  }
+}
+
 // ── Collect all metrics ────────────────────────────────────────────────
 function collectMetrics() {
   const cpuPercent = getCpuPercent();
@@ -148,6 +243,13 @@ const MAX_BACKOFF = 30000;
 async function sendMetrics() {
   try {
     const metrics = collectMetrics();
+
+    // Collect Docker metrics if enabled
+    const containers = await collectDockerMetrics();
+    if (containers) {
+      metrics.containers = containers;
+    }
+
     await axios.post(`${API_URL}/metrics`, metrics, {
       headers: { Authorization: `Bearer ${API_KEY}` },
       timeout: 5000,
@@ -179,6 +281,16 @@ function sleep(ms) {
 }
 
 // ── Main loop ──────────────────────────────────────────────────────────
+let stopping = false;
+let activeTimeout = null;
+
+async function loop() {
+  if (stopping) return;
+  await sendMetrics();
+  if (stopping) return;
+  activeTimeout = setTimeout(loop, INTERVAL_MS);
+}
+
 async function main() {
   // Prime CPU delta calculation
   getCpuPercent();
@@ -187,7 +299,17 @@ async function main() {
 
   console.log("Agent started. Collecting metrics...\n");
 
-  setInterval(sendMetrics, INTERVAL_MS);
+  const shutdown = (signal) => {
+    if (stopping) return;
+    stopping = true;
+    console.log(`\nReceived ${signal}, shutting down...`);
+    if (activeTimeout) clearTimeout(activeTimeout);
+    process.exit(0);
+  };
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  loop();
 }
 
 main();

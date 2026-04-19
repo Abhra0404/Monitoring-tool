@@ -1,5 +1,6 @@
 function GaugeChart({ value = 0, max = 100, size = 80, strokeWidth = 6, color = "#34d399" }) {
-  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  const safeMax = max > 0 ? max : 100;
+  const pct = Math.min(100, Math.max(0, (value / safeMax) * 100));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (pct / 100) * circumference;

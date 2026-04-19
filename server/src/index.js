@@ -2,14 +2,21 @@ const express = require("express");
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
-const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
+
+// Initialize the in-memory store (loads persisted data from ~/.theoria/store.json)
+require("./store");
 
 const { initSocket } = require("./sockets");
 const authRoutes = require("./routes/auth.routes");
 const serversRoutes = require("./routes/servers.routes");
 const alertsRoutes = require("./routes/alerts.routes");
+const httpChecksRoutes = require("./routes/httpChecks.routes");
+const pipelinesRoutes = require("./routes/pipelines.routes");
+const notificationsRoutes = require("./routes/notifications.routes");
+const dockerRoutes = require("./routes/docker.routes");
+const statusPageRoutes = require("./routes/statusPage.routes");
 const metricsController = require("./controllers/metrics.controller");
 const { authenticateApiKey } = require("./middleware/auth.middleware");
 
@@ -19,12 +26,11 @@ app.use(express.json({ limit: "1mb" }));
 
 // Health check
 app.get("/health", (req, res) => {
-  const dbState = mongoose.connection.readyState;
   res.json({
-    status: dbState === 1 ? "healthy" : "degraded",
+    status: "healthy",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    db: dbState === 1 ? "connected" : "disconnected",
+    storage: "in-memory",
   });
 });
 
@@ -66,6 +72,11 @@ app.use("/api/auth", authRoutes);
 // Protected routes
 app.use("/api/servers", serversRoutes);
 app.use("/api/alerts", alertsRoutes);
+app.use("/api/http-checks", httpChecksRoutes);
+app.use("/api/pipelines", pipelinesRoutes);
+app.use("/api/notifications", notificationsRoutes);
+app.use("/api/docker", dockerRoutes);
+app.use("/api/status-page", statusPageRoutes);
 
 // Agent metrics endpoint (rate limited + API key auth)
 app.post("/metrics", rateLimiter, authenticateApiKey, metricsController.receiveMetrics);
@@ -83,14 +94,14 @@ const clientBuildDir = clientBuildPaths.find((p) => fs.existsSync(path.join(p, "
 if (clientBuildDir) {
   app.use(express.static(clientBuildDir));
   // SPA fallback — any non-API route serves index.html
-  app.get("*", (req, res) => {
+  app.get("/{*splat}", (req, res) => {
     res.sendFile(path.join(clientBuildDir, "index.html"));
   });
   console.log(`Serving dashboard from ${clientBuildDir}`);
 } else {
   app.get("/", (req, res) => {
     res.json({
-      name: "MonitorX API",
+      name: "Theoria API",
       version: "1.0.0",
       status: "running",
       message: "Dashboard not built. Run: npm run build --prefix client",
@@ -104,28 +115,22 @@ const io = initSocket(server);
 // Make io global for use in controllers
 global.io = io;
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("DB connected");
-  })
-  .catch((err) => {
-    console.log("DB connection error:", err.message);
-  });
+// Start HTTP check runner (must be after global.io is set)
+const { startAll: startHttpChecks } = require("./services/httpCheckRunner");
+startHttpChecks();
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
+const HOST = process.env.HOST || "0.0.0.0";
+server.listen(PORT, HOST, () =>
+  console.log(`Server running on ${HOST}:${PORT}`)
 );
 
 // Graceful shutdown
 function shutdown() {
   console.log("\nShutting down gracefully...");
   server.close(() => {
-    mongoose.connection.close(false).then(() => {
-      console.log("Server shut down.");
-      process.exit(0);
-    });
+    console.log("Server shut down.");
+    process.exit(0);
   });
   setTimeout(() => process.exit(1), 10000);
 }

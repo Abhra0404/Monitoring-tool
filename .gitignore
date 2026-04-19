@@ -31,6 +31,13 @@ coverage/
 *.pid
 *.seed
 
-implement.md
+# Go agent binary (built locally)
+agent/theoria-agent
+agent/bin/
 
-.claudej
+# npm pack output
+*.tgz
+
+plans
+
+.claude
