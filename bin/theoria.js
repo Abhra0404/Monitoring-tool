@@ -55,7 +55,7 @@ for (let i = 0; i < flagArgs.length; i++) {
 
 function printHelp() {
   console.log(`
-${c.bold}${c.green}Theoria${c.reset} — Self-hosted system monitoring
+${c.bold}${c.green}Θ Theoria${c.reset} — Self-hosted system monitoring
 
 ${c.bold}USAGE:${c.reset}
   ${c.bold}Server (dashboard):${c.reset}

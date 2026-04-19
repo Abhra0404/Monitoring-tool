@@ -5,7 +5,6 @@ import {
   Bell,
   BellRing,
   Settings,
-  Activity,
   Globe,
   Globe2,
   GitBranch,
@@ -42,10 +41,8 @@ function Sidebar({ servers = [], selectedServerId, onSelectServer, alertCount = 
       {/* Brand */}
       <div className="p-5 border-b border-gray-800">
         <Link to="/" className="flex items-center gap-2">
-          <Activity className="text-emerald-400" size={24} />
-          <span className="text-xl font-bold tracking-tight">
-            Monitor<span className="text-emerald-400">X</span>
-          </span>
+          <span className="text-emerald-400 text-2xl font-bold leading-none" aria-hidden="true">Θ</span>
+          <span className="text-xl font-bold tracking-tight">Theoria</span>
         </Link>
         <p className="text-[11px] text-gray-500 mt-1">System Monitoring</p>
       </div>

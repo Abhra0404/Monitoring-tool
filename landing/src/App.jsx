@@ -101,11 +101,9 @@ function Navbar() {
         {/* Logo */}
         <a href="#" className="flex items-center gap-2.5 group">
           <div className="relative w-8 h-8 rounded-lg bg-red-accent flex items-center justify-center">
-            <Activity size={16} className="text-white" strokeWidth={2.5} />
+            <span className="text-white text-lg font-bold leading-none" aria-hidden="true">Θ</span>
           </div>
-          <span className="text-lg font-bold tracking-tight text-fg">
-            Monitor<span className="text-red-accent">X</span>
-          </span>
+          <span className="text-lg font-bold tracking-tight text-fg">Theoria</span>
         </a>
 
         {/* Desktop links */}

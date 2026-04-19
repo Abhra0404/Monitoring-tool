@@ -1,6 +1,6 @@
 <div align="center">
 
-# Theoria
+# Θ Theoria
 
 **Self-hosted system monitoring. One command, full dashboard.**
 
