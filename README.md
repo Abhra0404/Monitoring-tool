@@ -367,20 +367,13 @@ Theoria is actively migrating toward a production-grade platform. High-level pla
 
 ## Contributing
 
-Contributions are welcome. Typical flow:
-
-1. Fork the repository and create a feature branch (`git checkout -b feat/my-feature`)
-2. Make your changes with tests where applicable
-3. Run `npm test` in `server/` and `go test ./...` in `agent/`
-4. Ensure `npm run typecheck` passes for TypeScript changes
-5. Open a pull request with a clear description of the change
-
-Please keep PRs focused and small — large refactors are easier to review when split into logical commits.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up a development
+environment, run tests, and submit pull requests.
 
 ## License
 
-[ISC](#license) © Abhra0404
-
+Released under the [ISC License](LICENSE) © Abhra0404
+</div>
 <div align="center">
 <sub>Built for operators who want their monitoring back under one roof.</sub>
 </div>
