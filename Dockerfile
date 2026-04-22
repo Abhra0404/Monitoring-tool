@@ -1,5 +1,5 @@
 # ── Stage 1: build the React client ─────────────────────────────────────
-FROM node:20-alpine AS client-build
+FROM node:25-alpine AS client-build
 
 WORKDIR /app/client
 COPY client/package*.json ./
@@ -8,7 +8,7 @@ COPY client/ ./
 RUN VITE_API_URL="" npm run build
 
 # ── Stage 2: compile the TypeScript server ──────────────────────────────
-FROM node:20-alpine AS server-build
+FROM node:25-alpine AS server-build
 
 WORKDIR /app/server
 COPY server/package*.json ./
@@ -19,7 +19,7 @@ COPY server/src/ ./src/
 RUN npm run build
 
 # ── Stage 3: runtime image (production deps only) ───────────────────────
-FROM node:20-alpine
+FROM node:25-alpine
 
 WORKDIR /app
 COPY server/package*.json ./server/
