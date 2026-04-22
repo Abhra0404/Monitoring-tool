@@ -1,6 +1,6 @@
 {
   "name": "theoria-cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Self-hosted system monitoring — one command, full dashboard. npx theoria-cli to start.",
   "bin": {
     "theoria-cli": "./bin/theoria.js"
