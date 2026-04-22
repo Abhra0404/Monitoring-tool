@@ -522,6 +522,8 @@ async function main() {
     JWT_SECRET: config.jwtSecret,
     CLIENT_BUILD_PATH: CLIENT_BUILD,
     NODE_ENV: process.env.NODE_ENV || "production",
+    CORS_ORIGINS:
+      process.env.CORS_ORIGINS || `http://localhost:${config.port},http://127.0.0.1:${config.port}`,
   };
   if (config.databaseUrl) serverEnv.DATABASE_URL = config.databaseUrl;
 
