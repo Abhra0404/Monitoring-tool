@@ -3,8 +3,20 @@
 @tailwind utilities;
 
 @layer base {
+  /* Dark theme is the default and is used by every page's arbitrary-hex
+   * classes (bg-[#0d1117] etc.). A light theme is delivered via CSS
+   * overrides under [data-theme="light"] below — this avoids a full-app
+   * rewrite while still producing a real, contrast-correct light mode. */
+  :root {
+    color-scheme: dark;
+  }
+  [data-theme="light"] {
+    color-scheme: light;
+  }
+
   body {
     @apply bg-[#010409] text-gray-100 antialiased;
+    transition: background-color 120ms ease, color 120ms ease;
   }
 
   /* Custom scrollbar */
@@ -22,6 +34,42 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #484f58;
   }
+
+  /* ── Light theme overrides ─────────────────────────────────────────
+   * These rules remap the specific color tokens used throughout the app
+   * when [data-theme="light"] is set on <html>. They are scoped tightly
+   * so accent colors (emerald/amber/red for status) remain unchanged.
+   */
+  [data-theme="light"] body { background-color: #f6f8fa; color: #24292f; }
+  [data-theme="light"] .bg-\[\#010409\] { background-color: #f6f8fa !important; }
+  [data-theme="light"] .bg-\[\#0d1117\] { background-color: #ffffff !important; }
+  [data-theme="light"] .bg-\[\#161b22\] { background-color: #eef2f7 !important; }
+
+  [data-theme="light"] .text-gray-100,
+  [data-theme="light"] .text-gray-200 { color: #24292f !important; }
+  [data-theme="light"] .text-gray-300 { color: #374151 !important; }
+  [data-theme="light"] .text-gray-400 { color: #57606a !important; }
+  [data-theme="light"] .text-gray-500 { color: #6e7781 !important; }
+  [data-theme="light"] .text-gray-600 { color: #8c959f !important; }
+
+  [data-theme="light"] .border-gray-800,
+  [data-theme="light"] .border-gray-700 { border-color: #d0d7de !important; }
+  [data-theme="light"] .border-gray-800\/50,
+  [data-theme="light"] .border-gray-800\/70,
+  [data-theme="light"] .border-gray-800\/80 { border-color: #e6e8eb !important; }
+
+  [data-theme="light"] .bg-gray-800 { background-color: #eef2f7 !important; }
+  [data-theme="light"] .bg-gray-800\/20,
+  [data-theme="light"] .bg-gray-800\/30,
+  [data-theme="light"] .bg-gray-800\/40,
+  [data-theme="light"] .bg-gray-800\/50,
+  [data-theme="light"] .bg-gray-800\/60 { background-color: #eaeef3 !important; }
+  [data-theme="light"] .bg-gray-900 { background-color: #f6f8fa !important; }
+
+  [data-theme="light"] .divide-gray-800\/50 > * + * { border-color: #e6e8eb !important; }
+
+  [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c9d0d8; }
+  [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a8b1bb; }
 }
 
 @layer components {

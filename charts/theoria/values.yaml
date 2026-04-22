@@ -1,0 +1,112 @@
+# Default values for theoria.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: ghcr.io/theoria-monitoring/theoria
+  tag: ""            # Defaults to .Chart.AppVersion when empty
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 4000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: theoria.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 1Gi
+  # In-memory JSON backup location. When DATABASE_URL is set, Theoria uses
+  # Postgres as the source of truth and this PVC is effectively unused.
+  mountPath: /home/theoria/.theoria
+
+# Application configuration — values here become env vars on the pod.
+config:
+  port: 4000
+  nodeEnv: production
+  logLevel: info
+  corsOrigins: ""          # MUST be set in production; chart refuses "*"
+  rateLimitMax: 100
+  rateLimitWindow: "1 minute"
+
+# External dependencies. For production use the managed Postgres + Redis of
+# your choice; the bundled sub-charts are intentionally kept optional.
+database:
+  # URL is read from an existing secret when secretName is set.
+  url: ""
+  secretName: ""
+  secretKey: "url"
+
+redis:
+  url: ""
+  secretName: ""
+  secretKey: "url"
+
+auth:
+  jwtSecret: ""
+  jwtSecretExistingSecret: ""
+  jwtSecretKey: "jwtSecret"
+  adminEmail: ""
+  adminPassword: ""
+
+sentry:
+  dsn: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+podAnnotations: {}
+
+# Liveness / readiness — tuned for the /health/live and /health/ready split.
+probes:
+  liveness:
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 5

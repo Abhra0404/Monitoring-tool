@@ -1,0 +1,31 @@
+{
+  "name": "theoria-plugin-mysql",
+  "displayName": "MySQL",
+  "version": "1.0.0",
+  "type": "server-check",
+  "entry": "index.js",
+  "description": "Runs SELECT 1 and scrapes SHOW GLOBAL STATUS for threads / queries / uptime.",
+  "author": "Theoria",
+  "icon": "database",
+  "intervalSeconds": 60,
+  "timeoutMs": 8000,
+  "metrics": [
+    { "name": "threads_connected", "description": "Open client connections" },
+    { "name": "threads_running", "description": "Threads executing queries" },
+    { "name": "queries_total", "description": "Total queries executed" },
+    { "name": "uptime_sec", "unit": "s", "description": "Server uptime" },
+    { "name": "slow_queries_total", "description": "Slow queries counter" }
+  ],
+  "configSchema": {
+    "type": "object",
+    "required": ["host", "user"],
+    "properties": {
+      "host": { "type": "string", "default": "127.0.0.1" },
+      "port": { "type": "number", "default": 3306 },
+      "user": { "type": "string", "default": "monitor" },
+      "password": { "type": "string", "format": "password" },
+      "database": { "type": "string", "description": "Optional database to connect to" },
+      "ssl": { "type": "boolean", "default": false }
+    }
+  }
+}

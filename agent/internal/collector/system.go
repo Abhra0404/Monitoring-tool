@@ -8,20 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
-
-// DiskUsage returns total and free bytes for the root filesystem.
-func DiskUsage() (total, free uint64) {
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs("/", &stat); err != nil {
-		return 0, 0
-	}
-	total = stat.Blocks * uint64(stat.Bsize)
-	free = stat.Bfree * uint64(stat.Bsize)
-	return
-}
 
 // netState tracks previous readings for delta-based network I/O.
 type netState struct {
@@ -80,6 +68,7 @@ func NetworkDelta() (rxPerSec, txPerSec float64) {
 }
 
 // readNetBytes reads total rx/tx bytes from /proc/net/dev (Linux only).
+// macOS and Windows return an error so NetworkDelta reports 0.
 func readNetBytes() (rx, tx uint64, err error) {
 	if runtime.GOOS != "linux" {
 		return 0, 0, fmt.Errorf("network stats not available on %s", runtime.GOOS)

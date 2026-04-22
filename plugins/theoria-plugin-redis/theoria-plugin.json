@@ -1,0 +1,30 @@
+{
+  "name": "theoria-plugin-redis",
+  "displayName": "Redis",
+  "version": "1.0.0",
+  "type": "server-check",
+  "entry": "index.js",
+  "description": "Ping a Redis server and scrape INFO counters (uses only Node's built-in net module).",
+  "author": "Theoria",
+  "icon": "database",
+  "intervalSeconds": 30,
+  "timeoutMs": 5000,
+  "metrics": [
+    { "name": "connected_clients", "description": "Number of clients connected" },
+    { "name": "used_memory_bytes", "unit": "bytes", "description": "Resident memory used by Redis" },
+    { "name": "commands_processed_total", "description": "Total commands processed since start" },
+    { "name": "keyspace_hits", "description": "Successful key lookups" },
+    { "name": "keyspace_misses", "description": "Failed key lookups" }
+  ],
+  "configSchema": {
+    "type": "object",
+    "required": ["host"],
+    "properties": {
+      "host": { "type": "string", "default": "127.0.0.1", "description": "Redis host" },
+      "port": { "type": "number", "default": 6379, "description": "Redis port" },
+      "password": { "type": "string", "format": "password", "description": "AUTH password (optional)" },
+      "db": { "type": "number", "default": 0, "description": "Database index (optional)" },
+      "tls": { "type": "boolean", "default": false, "description": "Use TLS" }
+    }
+  }
+}

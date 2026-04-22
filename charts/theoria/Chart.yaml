@@ -1,0 +1,15 @@
+apiVersion: v2
+name: theoria
+description: Theoria — self-hosted system monitoring
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+icon: https://raw.githubusercontent.com/theoria-monitoring/theoria/main/client/public/logo.png
+keywords:
+  - monitoring
+  - observability
+  - metrics
+  - alerts
+home: https://github.com/theoria-monitoring/theoria
+sources:
+  - https://github.com/theoria-monitoring/theoria

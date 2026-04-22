@@ -7,8 +7,11 @@
   },
   "files": [
     "bin/",
-    "server/src/",
+    "server/dist/",
     "server/package.json",
+    "server/package-lock.json",
+    "server/drizzle.config.ts",
+    "server/scripts/",
     "client/build/",
     "agent/cmd/",
     "agent/internal/",
@@ -18,8 +21,11 @@
   ],
   "scripts": {
     "start": "node bin/theoria.js",
+    "postinstall": "cd server && npm ci --omit=dev --legacy-peer-deps --ignore-scripts || true",
+    "build:server": "cd server && npm install --legacy-peer-deps && npm run build",
     "build:client": "cd client && npm install --legacy-peer-deps && VITE_API_URL= npm run build",
-    "prepublishOnly": "npm run build:client"
+    "build": "npm run build:server && npm run build:client",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "monitoring",
@@ -40,16 +46,9 @@
   },
   "homepage": "https://github.com/Abhra0404/Monitoring-tool#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
-    "axios": "^1.15.0",
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "socket.io": "^4.8.3",
-    "uuid": "^13.0.0"
+    "axios": "^1.7.7"
   }
 }

@@ -3,7 +3,10 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { evaluateAlerts } from "../alerts/engine.js";
+import { seedDefaultAlerts } from "../alerts/defaults.js";
 import { dispatchAlert } from "../notifications/service.js";
+import { emitEvent } from "../events/service.js";
+import { observe as observeAnomaly } from "../anomaly/detector.js";
 
 const receiveMetricsSchema = {
   body: {
@@ -63,14 +66,40 @@ export default async function metricsRoutes(app: FastifyInstance): Promise<void>
       const diskPercent = diskTotal ? (((diskTotal as number) - ((diskFree as number) || 0)) / (diskTotal as number)) * 100 : 0;
 
       // Upsert server
+      const existing = app.store.Servers.findOne(userId, serverId as string);
+      const isNewServer = !existing;
+      const prevStatus = existing?.status ?? null;
+      const nextStatus = determineStatus(cpu as number, memoryPercent, diskPercent);
       app.store.Servers.upsert(userId, serverId as string, {
         lastSeen: new Date().toISOString(),
-        status: determineStatus(cpu as number, memoryPercent, diskPercent),
+        status: nextStatus,
         ...(cpuCount !== undefined && { cpuCount: cpuCount as number }),
         ...(platform !== undefined && { platform: platform as string }),
         ...(arch !== undefined && { arch: arch as string }),
         ...(hostname !== undefined && { hostname: hostname as string }),
       });
+      if (isNewServer) {
+        seedDefaultAlerts(app.store, userId, serverId as string);
+        emitEvent(app.store, app.io, {
+          userId,
+          kind: "server_online",
+          source: "agent",
+          severity: "info",
+          title: `Agent connected: ${serverId as string}`,
+          detail: { serverId, platform, arch, hostname, cpuCount },
+        });
+      } else if (prevStatus === "offline") {
+        // nextStatus is never "offline" (determineStatus only returns the
+        // live three states), so any transition from offline is a recovery.
+        emitEvent(app.store, app.io, {
+          userId,
+          kind: "server_online",
+          source: "agent",
+          severity: "info",
+          title: `Server recovered: ${serverId as string}`,
+          detail: { serverId, previousStatus: prevStatus },
+        });
+      }
 
       const timestamp = new Date();
       const labels = { host: serverId as string };
@@ -99,6 +128,49 @@ export default async function metricsRoutes(app: FastifyInstance): Promise<void>
 
       if (metricsToSave.length > 0) {
         app.store.Metrics.insertMany(metricsToSave);
+        app.metrics?.metricsIngested.inc({ source: "agent" }, metricsToSave.length);
+      }
+
+      // Anomaly detection on key resource metrics only — they are the most
+      // actionable and have the lowest noise profile. Other metrics (network,
+      // uptime) drift too wildly to yield meaningful Z-scores.
+      const ANOMALY_METRICS: Array<[string, unknown]> = [
+        ["cpu_usage", cpu],
+        ["memory_usage_percent", memoryPercent],
+        ["disk_usage_percent", diskPercent],
+        ["load_avg_1m", loadAvg1],
+      ];
+      for (const [name, value] of ANOMALY_METRICS) {
+        if (typeof value !== "number" || !Number.isFinite(value)) continue;
+        const result = observeAnomaly(userId, serverId as string, name, value, timestamp.getTime());
+        if (result) {
+          emitEvent(app.store, app.io, {
+            userId,
+            kind: "anomaly",
+            source: "anomaly-detector",
+            severity: Math.abs(result.zScore) >= 5 ? "critical" : "warning",
+            title: `${name} anomaly on ${serverId as string}: ${value.toFixed(1)} (z=${result.zScore.toFixed(2)})`,
+            detail: {
+              serverId,
+              metric: name,
+              value,
+              zScore: result.zScore,
+              mean: result.mean,
+              stddev: result.stddev,
+              samples: result.samples,
+            },
+            time: timestamp.getTime(),
+          });
+          app.io.to("all").emit("anomaly", {
+            serverId,
+            metric: name,
+            value,
+            zScore: result.zScore,
+            mean: result.mean,
+            stddev: result.stddev,
+            timestamp: timestamp.getTime(),
+          });
+        }
       }
 
       // Evaluate alerts
@@ -108,6 +180,14 @@ export default async function metricsRoutes(app: FastifyInstance): Promise<void>
         metricsMap,
         (alert) => {
           app.io.to("all").emit("alert:resolved", alert);
+          emitEvent(app.store, app.io, {
+            userId,
+            kind: "alert_resolved",
+            source: "alerts",
+            severity: "info",
+            title: `Alert resolved: ${alert.ruleName as string}`,
+            detail: alert,
+          });
           dispatchAlert(app.store, userId, alert as unknown as Record<string, unknown>, "resolved").catch((err: unknown) =>
             console.error("Resolve notification error:", (err as Error).message),
           );
@@ -136,6 +216,26 @@ export default async function metricsRoutes(app: FastifyInstance): Promise<void>
 
       for (const alert of firedAlerts) {
         app.io.to("all").emit("alert:fired", alert);
+        emitEvent(app.store, app.io, {
+          userId,
+          kind: "alert_fired",
+          source: "alerts",
+          severity:
+            alert.severity === "critical"
+              ? "critical"
+              : alert.severity === "warning"
+                ? "warning"
+                : "info",
+          title: `Alert firing: ${alert.ruleName}`,
+          detail: {
+            ruleId: alert.id,
+            ruleName: alert.ruleName,
+            metricName: alert.metricName,
+            actualValue: alert.actualValue,
+            threshold: alert.threshold,
+            labels: alert.labels,
+          },
+        });
         dispatchAlert(app.store, userId, alert as unknown as Record<string, unknown>, "fired").catch((err: unknown) =>
           console.error("Alert notification error:", (err as Error).message),
         );

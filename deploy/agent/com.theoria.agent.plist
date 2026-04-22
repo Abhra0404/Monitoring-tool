@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Theoria agent — launchd plist (macOS).
+
+  The install.sh script replaces @@URL@@ / @@KEY@@ / @@ID@@ / @@DOCKER@@
+  with the real values before dropping the file into
+  /Library/LaunchDaemons/com.theoria.agent.plist and calling
+  `launchctl bootstrap system …`.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.theoria.agent</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/theoria-agent</string>
+    <string>--url</string>
+    <string>@@URL@@</string>
+    <string>--key</string>
+    <string>@@KEY@@</string>
+    <string>--id</string>
+    <string>@@ID@@</string>
+    <string>--docker=@@DOCKER@@</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/var/log/theoria-agent.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/var/log/theoria-agent.log</string>
+
+  <!-- Run as an unprivileged user; macOS creates _theoria-agent on first load. -->
+  <key>UserName</key>
+  <string>_theoria-agent</string>
+
+  <key>GroupName</key>
+  <string>_theoria-agent</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <key>LowPriorityIO</key>
+  <true/>
+
+  <key>Nice</key>
+  <integer>5</integer>
+</dict>
+</plist>

@@ -1,0 +1,7 @@
+{
+  "name": "theoria-plugin-nginx",
+  "version": "1.0.0",
+  "description": "Theoria plugin: scrape nginx stub_status module.",
+  "main": "index.js",
+  "license": "MIT"
+}

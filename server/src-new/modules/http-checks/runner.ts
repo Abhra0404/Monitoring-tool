@@ -9,6 +9,7 @@ import type { Store } from "../../store/index.js";
 import type { HttpCheckResult } from "../../shared/types.js";
 import { evaluateAlerts } from "../alerts/engine.js";
 import { dispatchAlert } from "../notifications/service.js";
+import { emitEvent } from "../events/service.js";
 import type { Server as SocketIOServer } from "socket.io";
 
 const MAX_RESULTS = 100;
@@ -92,6 +93,7 @@ async function runCheck(checkId: string): Promise<void> {
   const upCount = results.filter((r) => r.status === "up").length;
   const uptimePercent = results.length > 0 ? Math.round((upCount / results.length) * 1000) / 10 : 100;
 
+  const prevStatus = current.status;
   _store.HttpChecks.update(current._id, {
     status,
     lastCheckedAt: new Date().toISOString(),
@@ -101,6 +103,28 @@ async function runCheck(checkId: string): Promise<void> {
     uptimePercent,
     results,
   });
+
+  // Emit a timeline event whenever the status transitions (including initial
+  // pending → up/down). Silent noise avoided: we do NOT emit on steady up/up
+  // or down/down ticks.
+  if (prevStatus !== status) {
+    emitEvent(_store, _io, {
+      userId: current.userId,
+      kind: "http_check",
+      source: "http-checks",
+      severity: status === "down" ? "error" : "info",
+      title: `HTTP check ${status.toUpperCase()}: ${current.name}`,
+      detail: {
+        checkId: current._id,
+        url: current.url,
+        status,
+        previousStatus: prevStatus,
+        statusCode,
+        responseTime,
+        error,
+      },
+    });
+  }
 
   if (_io) {
     _io.to("all").emit("httpcheck:result", {
@@ -115,6 +139,13 @@ async function runCheck(checkId: string): Promise<void> {
       error,
       timestamp: resultEntry.timestamp,
     });
+  }
+
+  try {
+    const mod = await import("../../plugins/internal-metrics.js");
+    mod.httpChecksTotal.inc({ status });
+  } catch {
+    // prom-client unavailable during early boot — non-fatal.
   }
 
   // Feed synthetic metric into alert engine

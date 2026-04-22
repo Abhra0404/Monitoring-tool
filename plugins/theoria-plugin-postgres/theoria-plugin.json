@@ -1,0 +1,37 @@
+{
+  "name": "theoria-plugin-postgres",
+  "displayName": "PostgreSQL",
+  "version": "1.0.0",
+  "type": "server-check",
+  "entry": "index.js",
+  "description": "Runs SELECT 1 and scrapes connection/transaction counters from pg_stat_database.",
+  "author": "Theoria",
+  "icon": "database",
+  "intervalSeconds": 60,
+  "timeoutMs": 8000,
+  "metrics": [
+    { "name": "active_connections", "description": "Current active backends" },
+    { "name": "idle_connections", "description": "Idle backends" },
+    { "name": "max_connections", "description": "Configured max_connections" },
+    { "name": "xact_commit_total", "description": "Committed transactions (all dbs)" },
+    { "name": "xact_rollback_total", "description": "Rolled-back transactions" }
+  ],
+  "configSchema": {
+    "type": "object",
+    "required": ["connectionString"],
+    "properties": {
+      "connectionString": {
+        "type": "string",
+        "format": "password",
+        "default": "postgres://user:pass@localhost:5432/postgres",
+        "description": "libpq-style connection URL"
+      },
+      "sslMode": {
+        "type": "string",
+        "enum": ["disable", "require"],
+        "default": "disable",
+        "description": "Whether to require TLS"
+      }
+    }
+  }
+}

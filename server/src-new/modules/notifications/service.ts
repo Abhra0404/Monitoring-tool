@@ -96,6 +96,64 @@ function sendTelegram(botToken: string, chatId: string, text: string): Promise<s
   });
 }
 
+// ── Provider: Microsoft Teams (Incoming Webhook / Adaptive Card) ──
+function sendTeams(webhookUrl: string, card: Record<string, unknown>): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(webhookUrl);
+    const body = JSON.stringify(card);
+    const mod = url.protocol === "https:" ? https : http;
+    const req = mod.request(
+      {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === "https:" ? 443 : 80),
+        path: url.pathname + url.search,
+        method: "POST" as const,
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);
+          else reject(new Error(`Teams returned ${res.statusCode}: ${data}`));
+        });
+      },
+    );
+    req.on("error", reject);
+    req.setTimeout(10_000, () => req.destroy(new Error("Teams timeout")));
+    req.write(body);
+    req.end();
+  });
+}
+
+// ── Provider: PagerDuty Events API v2 ──
+function sendPagerDuty(routingKey: string, event: Record<string, unknown>): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ routing_key: routingKey, ...event });
+    const req = https.request(
+      {
+        hostname: "events.pagerduty.com",
+        path: "/v2/enqueue",
+        method: "POST" as const,
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          // PagerDuty returns 202 Accepted on success.
+          if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);
+          else reject(new Error(`PagerDuty returned ${res.statusCode}: ${data}`));
+        });
+      },
+    );
+    req.on("error", reject);
+    req.setTimeout(10_000, () => req.destroy(new Error("PagerDuty timeout")));
+    req.write(body);
+    req.end();
+  });
+}
+
 // ── Provider: Generic Webhook ──
 function sendWebhook(url: string, payload: Record<string, unknown>, method = "POST"): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -190,6 +248,55 @@ function buildWebhookAlertPayload(alert: Record<string, unknown>, type: string) 
   };
 }
 
+function buildTeamsAlertPayload(alert: Record<string, unknown>, type: string) {
+  const isResolved = type === "resolved";
+  const title = isResolved ? `Resolved: ${alert.ruleName || alert.message}` : `Alert: ${alert.ruleName}`;
+  const color = isResolved ? "Good" : alert.severity === "critical" ? "Attention" : "Warning";
+  return {
+    type: "message",
+    attachments: [{
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+        type: "AdaptiveCard",
+        version: "1.4",
+        body: [
+          { type: "TextBlock", size: "Large", weight: "Bolder", text: title, color, wrap: true },
+          { type: "FactSet", facts: [
+            { title: "Metric", value: String(alert.metricName ?? "N/A") },
+            { title: "Severity", value: String(alert.severity ?? "info") },
+            { title: "Value", value: String(alert.actualValue ?? "N/A") },
+            { title: "Threshold", value: String(alert.threshold ?? "N/A") },
+          ] },
+          { type: "TextBlock", text: `Theoria • ${new Date().toISOString()}`, isSubtle: true, size: "Small", wrap: true },
+        ],
+      },
+    }],
+  };
+}
+
+function buildPagerDutyAlertEvent(alert: Record<string, unknown>, type: string, dedupKey: string) {
+  const action = type === "resolved" ? "resolve" : "trigger";
+  const sev = (alert.severity as string) === "critical" ? "critical"
+    : (alert.severity as string) === "warning" ? "warning"
+    : (alert.severity as string) === "error" ? "error" : "info";
+  return {
+    event_action: action,
+    dedup_key: dedupKey,
+    payload: {
+      summary: `${alert.ruleName ?? alert.message ?? "Theoria alert"}`,
+      source: "theoria",
+      severity: sev,
+      custom_details: {
+        metricName: alert.metricName,
+        actualValue: alert.actualValue,
+        threshold: alert.threshold,
+        labels: alert.labels,
+      },
+    },
+  };
+}
+
 function buildAlertEmailHtml(alert: Record<string, unknown>, type: string): string {
   const isResolved = type === "resolved";
   const color = isResolved ? "#34d399" : alert.severity === "critical" ? "#ef4444" : "#f59e0b";
@@ -270,6 +377,14 @@ export async function dispatchAlert(
         case "webhook":
           await sendWebhook(cfg.url, buildWebhookAlertPayload(alert, type), cfg.method || "POST");
           break;
+        case "teams":
+          await sendTeams(cfg.webhookUrl, buildTeamsAlertPayload(alert, type));
+          break;
+        case "pagerduty": {
+          const dedup = `${(alert.ruleName ?? "alert")}-${(alert.metricName ?? "")}`.slice(0, 255);
+          await sendPagerDuty(cfg.routingKey, buildPagerDutyAlertEvent(alert, type, dedup));
+          break;
+        }
       }
     } catch (err: unknown) {
       console.error(`Notification failed (${channel.type}/${channel.name}):`, (err as Error).message);
@@ -337,6 +452,12 @@ export async function testChannel(channel: { type: string; config: Record<string
       break;
     case "webhook":
       await sendWebhook(cfg.url, buildWebhookAlertPayload(testAlert, "fired"), cfg.method || "POST");
+      break;
+    case "teams":
+      await sendTeams(cfg.webhookUrl, buildTeamsAlertPayload(testAlert, "fired"));
+      break;
+    case "pagerduty":
+      await sendPagerDuty(cfg.routingKey, buildPagerDutyAlertEvent(testAlert, "fired", "theoria-test"));
       break;
     default:
       throw new Error(`Unknown notification channel type: ${channel.type}`);

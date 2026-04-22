@@ -1,0 +1,69 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Caddyfile.template — Theoria custom-domain status pages with automatic TLS
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# This template shows how to front Theoria with Caddy so that tenant-defined
+# custom domains (e.g. `status.example.com`) automatically get Let's Encrypt
+# certificates AND proxy to Theoria while preserving the original Host header.
+#
+# HOW IT WORKS
+#
+# 1. Each tenant configures a customDomain on their Status Page (e.g.
+#    `status.example.com`) and adds a DNS record pointing that hostname
+#    at your Caddy server.
+# 2. Caddy automatically provisions a TLS cert for every hostname defined
+#    in the `on_demand_tls` block below and then reverse-proxies to Theoria.
+# 3. Theoria's status-page module reads the Host header and serves the
+#    matching StatusPageConfig's public endpoints.
+#
+# DEPLOYMENT
+#
+# Substitute:
+#   {$DASHBOARD_DOMAIN}  — the primary admin domain (e.g. theoria.example.com)
+#   {$THEORIA_UPSTREAM}  — internal address of the Theoria server (e.g. 127.0.0.1:4000)
+#   {$ADMIN_EMAIL}        — contact email for Let's Encrypt
+#
+# Save as `/etc/caddy/Caddyfile` and run: `systemctl reload caddy`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+{
+	email {$ADMIN_EMAIL}
+	# Restrict on-demand TLS to hosts that Theoria will actually serve. Caddy
+	# queries this endpoint with `?domain=<hostname>` before asking Let's
+	# Encrypt for a certificate — Theoria returns 200 if the host matches a
+	# configured customDomain and 404 otherwise, protecting you from random
+	# bots triggering ACME rate limits with bogus domains.
+	on_demand_tls {
+		ask http://{$THEORIA_UPSTREAM}/api/status-page/ask
+	}
+}
+
+# ── Admin dashboard + primary domain ─────────────────────────────────────────
+{$DASHBOARD_DOMAIN} {
+	reverse_proxy {$THEORIA_UPSTREAM} {
+		header_up X-Forwarded-Host {host}
+		header_up Host {host}
+	}
+}
+
+# ── Tenant custom domains ────────────────────────────────────────────────────
+# Accept TLS for arbitrary hostnames — gated by the on_demand_tls ask above.
+https:// {
+	tls {
+		on_demand
+	}
+	@statusPagePaths {
+		path /api/status-page/* /status
+	}
+	reverse_proxy @statusPagePaths {$THEORIA_UPSTREAM} {
+		header_up X-Forwarded-Host {host}
+		header_up Host {host}
+	}
+
+	# Anything else on a tenant domain goes to the static status-page SPA
+	# (served by Theoria itself for simplicity).
+	reverse_proxy {$THEORIA_UPSTREAM} {
+		header_up X-Forwarded-Host {host}
+		header_up Host {host}
+	}
+}

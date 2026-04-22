@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "theoria.fullname" . }}
+  labels:
+    {{- include "theoria.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "theoria.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "theoria.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: theoria
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.config.port | quote }}
+            - name: HOST
+              value: "0.0.0.0"
+            - name: NODE_ENV
+              value: {{ .Values.config.nodeEnv | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            - name: CORS_ORIGINS
+              value: {{ required "config.corsOrigins must be set in production" .Values.config.corsOrigins | quote }}
+            - name: RATE_LIMIT_MAX
+              value: {{ .Values.config.rateLimitMax | quote }}
+            - name: RATE_LIMIT_WINDOW
+              value: {{ .Values.config.rateLimitWindow | quote }}
+            {{- if .Values.database.url }}
+            - name: DATABASE_URL
+              value: {{ .Values.database.url | quote }}
+            {{- else if .Values.database.secretName }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.secretName }}
+                  key: {{ .Values.database.secretKey }}
+            {{- end }}
+            {{- if .Values.redis.url }}
+            - name: REDIS_URL
+              value: {{ .Values.redis.url | quote }}
+            {{- else if .Values.redis.secretName }}
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.redis.secretName }}
+                  key: {{ .Values.redis.secretKey }}
+            {{- end }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.auth.jwtSecretExistingSecret }}
+                  name: {{ .Values.auth.jwtSecretExistingSecret }}
+                  key: {{ .Values.auth.jwtSecretKey }}
+                  {{- else }}
+                  name: {{ include "theoria.fullname" . }}-secrets
+                  key: jwtSecret
+                  {{- end }}
+            {{- if .Values.auth.adminEmail }}
+            - name: ADMIN_EMAIL
+              value: {{ .Values.auth.adminEmail | quote }}
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "theoria.fullname" . }}-secrets
+                  key: adminPassword
+            {{- end }}
+            {{- if .Values.sentry.dsn }}
+            - name: SENTRY_DSN
+              value: {{ .Values.sentry.dsn | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "theoria.fullname" . }}
+        {{- else }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

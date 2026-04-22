@@ -1,16 +1,56 @@
-version: "3.8"
-
 services:
+  postgres:
+    image: timescale/timescaledb-ha:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-theoria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-theoria}
+      POSTGRES_DB: ${POSTGRES_DB:-theoria}
+    volumes:
+      - postgres-data:/home/postgres/pgdata/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-theoria} -d ${POSTGRES_DB:-theoria}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   theoria:
     build: .
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "${PORT:-4000}:4000"
     environment:
-      - PORT=4000
-      - JWT_SECRET=${JWT_SECRET:-changeme_generate_a_real_secret}
+      NODE_ENV: production
+      PORT: 4000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://${POSTGRES_USER:-theoria}:${POSTGRES_PASSWORD:-theoria}@postgres:5432/${POSTGRES_DB:-theoria}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-changeme_generate_a_real_secret_at_least_16_chars}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - theoria-data:/root/.theoria
 
 volumes:
+  postgres-data:
+  redis-data:
   theoria-data:

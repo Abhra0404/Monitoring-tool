@@ -3,6 +3,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { normalize } from "./normalizer.js";
 import { dispatchPipelineFailure } from "../notifications/service.js";
+import { emitEvent } from "../events/service.js";
 
 export default async function pipelinesRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/pipelines/webhook — uses API key auth
@@ -14,8 +15,39 @@ export default async function pipelinesRoutes(app: FastifyInstance): Promise<voi
     if (!normalized) {
       return reply.status(400).send({ error: "Unrecognized webhook format" });
     }
+    const previous = app.store.Pipelines.find(req.user._id, { source: normalized.source }).find(
+      (p) => p.runId === normalized.runId,
+    );
     const pipeline = app.store.Pipelines.upsert(req.user._id, normalized.source, normalized.runId, normalized);
     app.io.to("all").emit("pipeline:update", pipeline);
+    // Emit a timeline event for terminal states and when status changes.
+    const terminalStates = new Set(["success", "failure", "cancelled"]);
+    const statusChanged = previous?.status !== pipeline.status;
+    if (statusChanged && (terminalStates.has(pipeline.status) || pipeline.status === "running")) {
+      emitEvent(app.store, app.io, {
+        userId: req.user._id,
+        kind: "pipeline",
+        source: "pipelines",
+        severity:
+          pipeline.status === "failure"
+            ? "error"
+            : pipeline.status === "cancelled"
+              ? "warning"
+              : "info",
+        title: `Pipeline ${pipeline.status}: ${pipeline.repo}${pipeline.branch ? "@" + pipeline.branch : ""} (${pipeline.source})`,
+        detail: {
+          pipelineId: pipeline._id,
+          source: pipeline.source,
+          runId: pipeline.runId,
+          repo: pipeline.repo,
+          branch: pipeline.branch,
+          status: pipeline.status,
+          previousStatus: previous?.status ?? null,
+          url: pipeline.url,
+          commitSha: pipeline.commitSha,
+        },
+      });
+    }
     if (pipeline.status === "failure") {
       dispatchPipelineFailure(app.store, req.user._id, pipeline as unknown as Record<string, unknown>).catch((err: unknown) =>
         console.error("Pipeline notification error:", (err as Error).message),

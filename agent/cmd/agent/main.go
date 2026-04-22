@@ -16,6 +16,13 @@ import (
 	"github.com/theoria/agent/internal/collector"
 )
 
+// Build-time metadata (populated via -ldflags -X main.version=...).
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildDate = "unknown"
+)
+
 func main() {
 	// CLI flags
 	url := flag.String("url", envOr("API_URL", "http://localhost:4000"), "Theoria server URL")
@@ -24,7 +31,13 @@ func main() {
 	interval := flag.Duration("interval", envDuration("INTERVAL_MS", 5*time.Second), "Collection interval")
 	docker := flag.Bool("docker", envBool("DOCKER"), "Enable Docker container monitoring")
 	dockerSocket := flag.String("docker-socket", envOr("DOCKER_SOCKET", "/var/run/docker.sock"), "Docker socket path")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("theoria-agent %s (commit %s, built %s)\n", version, commit, buildDate)
+		return
+	}
 
 	if *key == "" {
 		fmt.Fprintln(os.Stderr, "ERROR: API key not provided")
@@ -33,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Printf("Agent starting for server: %s", *id)
+	log.Printf("theoria-agent %s starting for server: %s", version, *id)
 	log.Printf("Sending metrics to: %s", *url)
 	log.Printf("Collection interval: %s", *interval)
 	if *docker {

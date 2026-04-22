@@ -1,0 +1,10 @@
+{
+  "name": "theoria-plugin-mongodb",
+  "version": "1.0.0",
+  "description": "Theoria plugin: health check + metrics for MongoDB via serverStatus.",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "mongodb": "^6.3.0"
+  }
+}

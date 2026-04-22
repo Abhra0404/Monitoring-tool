@@ -1,0 +1,10 @@
+{
+  "name": "theoria-plugin-redis",
+  "version": "1.0.0",
+  "description": "Theoria plugin: monitor a Redis server via PING and INFO.",
+  "main": "index.js",
+  "license": "MIT",
+  "theoria": {
+    "plugin": true
+  }
+}

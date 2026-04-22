@@ -1,0 +1,33 @@
+{
+  "name": "theoria-plugin-mongodb",
+  "displayName": "MongoDB",
+  "version": "1.0.0",
+  "type": "server-check",
+  "entry": "index.js",
+  "description": "Runs a hello ping + serverStatus for connection counts and ops.",
+  "author": "Theoria",
+  "icon": "database",
+  "intervalSeconds": 60,
+  "timeoutMs": 8000,
+  "metrics": [
+    { "name": "current_connections", "description": "Current client connections" },
+    { "name": "available_connections", "description": "Free connection slots" },
+    { "name": "uptime_sec", "unit": "s", "description": "Server uptime" },
+    { "name": "opcounters_query", "description": "Query operations counter" },
+    { "name": "opcounters_insert", "description": "Insert operations counter" },
+    { "name": "opcounters_update", "description": "Update operations counter" },
+    { "name": "opcounters_delete", "description": "Delete operations counter" }
+  ],
+  "configSchema": {
+    "type": "object",
+    "required": ["uri"],
+    "properties": {
+      "uri": {
+        "type": "string",
+        "format": "password",
+        "default": "mongodb://localhost:27017",
+        "description": "MongoDB connection URI"
+      }
+    }
+  }
+}

@@ -3,7 +3,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { testChannel as testChannelService } from "./service.js";
 
-const SUPPORTED_TYPES = ["slack", "email", "discord", "telegram", "webhook"];
+const SUPPORTED_TYPES = ["slack", "email", "discord", "telegram", "webhook", "teams", "pagerduty"];
 
 export default async function notificationsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
@@ -43,6 +43,12 @@ export default async function notificationsRoutes(app: FastifyInstance): Promise
     }
     if (type === "webhook" && !config.url) {
       return reply.status(400).send({ error: "url is required for webhook channels" });
+    }
+    if (type === "teams" && !config.webhookUrl) {
+      return reply.status(400).send({ error: "webhookUrl is required for Teams channels" });
+    }
+    if (type === "pagerduty" && !config.routingKey) {
+      return reply.status(400).send({ error: "routingKey is required for PagerDuty channels" });
     }
 
     const channel = app.store.NotificationChannels.create({

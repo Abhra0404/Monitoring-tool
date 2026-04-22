@@ -1,11 +1,74 @@
 // ── Alert evaluation engine ──
 // Evaluates alert rules against incoming metrics, tracks breach duration,
 // and fires/resolves alerts.
+//
+// Horizontal-scale story: `breachState` is an in-memory Map for O(1) reads
+// on the hot metric-ingest path. When Redis is configured the state is
+// *mirrored* to a Redis hash asynchronously so that a rolling restart or
+// a failed-over replica picks up the countdown where it left off. Hydration
+// happens once at boot via `hydrateBreachStateFromRedis()`. Reads never
+// await Redis — correctness on the critical path stays synchronous.
 
 import type { Store } from "../../store/index.js";
 import type { AlertFiredEvent } from "../../shared/types.js";
 
-const breachState = new Map<string, { firstBreachAt: number; lastBreachValue: number }>();
+type BreachEntry = { firstBreachAt: number; lastBreachValue: number };
+
+const breachState = new Map<string, BreachEntry>();
+
+// ── Optional Redis mirror ──────────────────────────────────────────────────
+// The engine is used from synchronous call paths, so we can't await Redis
+// per-update. Instead we fire-and-forget with error suppression. Missed
+// writes are self-healing — the next breach tick will overwrite the hash.
+
+const REDIS_KEY = "theoria:alerts:breach_state";
+
+interface MirrorTarget {
+  hset(key: string, field: string, value: string): Promise<number>;
+  hdel(key: string, field: string): Promise<number>;
+  hgetall(key: string): Promise<Record<string, string>>;
+}
+
+let mirror: MirrorTarget | null = null;
+
+export function attachBreachStateMirror(m: MirrorTarget | null): void {
+  mirror = m;
+}
+
+/**
+ * Load any previously-persisted breach state from Redis. Call once after
+ * the Redis plugin is ready, before metric ingest begins.
+ */
+export async function hydrateBreachStateFromRedis(m: MirrorTarget): Promise<number> {
+  const raw = await m.hgetall(REDIS_KEY);
+  let loaded = 0;
+  for (const [ruleId, json] of Object.entries(raw)) {
+    try {
+      const parsed = JSON.parse(json) as BreachEntry;
+      if (
+        typeof parsed.firstBreachAt === "number" &&
+        typeof parsed.lastBreachValue === "number"
+      ) {
+        breachState.set(ruleId, parsed);
+        loaded++;
+      }
+    } catch {
+      // Corrupt entry — ignore.
+    }
+  }
+  attachBreachStateMirror(m);
+  return loaded;
+}
+
+function mirrorSet(key: string, entry: BreachEntry): void {
+  if (!mirror) return;
+  mirror.hset(REDIS_KEY, key, JSON.stringify(entry)).catch(() => {});
+}
+
+function mirrorDel(key: string): void {
+  if (!mirror) return;
+  mirror.hdel(REDIS_KEY, key).catch(() => {});
+}
 
 type MetricsMap = Record<string, { value: number; labels: Record<string, string> }>;
 
@@ -47,13 +110,16 @@ export function evaluateAlerts(
       const state = breachState.get(stateKey);
 
       if (!state) {
-        breachState.set(stateKey, { firstBreachAt: now, lastBreachValue: value });
+        const entry: BreachEntry = { firstBreachAt: now, lastBreachValue: value };
+        breachState.set(stateKey, entry);
+        mirrorSet(stateKey, entry);
         if (!rule.durationMinutes || rule.durationMinutes <= 0) {
           const alert = fireAlert(store, rule, userId, value);
           if (alert) firedAlerts.push(alert);
         }
       } else {
         state.lastBreachValue = value;
+        mirrorSet(stateKey, state);
         const elapsedMin = (now - state.firstBreachAt) / 60_000;
         if (elapsedMin >= (rule.durationMinutes || 0)) {
           const alert = fireAlert(store, rule, userId, value);
@@ -63,6 +129,7 @@ export function evaluateAlerts(
     } else {
       if (breachState.has(stateKey)) {
         breachState.delete(stateKey);
+        mirrorDel(stateKey);
         resolveAlert(store, rule, userId, emitResolve);
       }
     }
@@ -73,6 +140,13 @@ export function evaluateAlerts(
 
 export function clearBreachState(ruleId: string): void {
   breachState.delete(ruleId);
+  mirrorDel(ruleId);
+}
+
+/** Exposed for tests so each run starts with a clean map. */
+export function __resetBreachStateForTests(): void {
+  breachState.clear();
+  mirror = null;
 }
 
 export function evaluateCondition(value: number, operator: string, threshold: number): boolean {

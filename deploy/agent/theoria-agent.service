@@ -1,0 +1,53 @@
+[Unit]
+Description=Theoria Agent — system metrics collector
+Documentation=https://github.com/theoria-monitoring/theoria
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The install script writes the token / URL / server-id into this env file.
+# Layout: one KEY=VALUE per line, e.g.
+#   THEORIA_URL=https://monitor.example.com
+#   THEORIA_KEY=...
+#   THEORIA_ID=web-01
+#   THEORIA_DOCKER=1
+EnvironmentFile=/etc/theoria-agent.env
+ExecStart=/usr/local/bin/theoria-agent \
+  --url    ${THEORIA_URL} \
+  --key    ${THEORIA_KEY} \
+  --id     ${THEORIA_ID} \
+  --docker=${THEORIA_DOCKER}
+
+# Restart policy: always come back, but cap restart storms.
+Restart=always
+RestartSec=10
+StartLimitBurst=10
+StartLimitIntervalSec=120
+
+# Hardening — agent only needs outbound HTTP + /proc + /sys.
+DynamicUser=yes
+SupplementaryGroups=docker
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+ReadOnlyPaths=/proc /sys
+
+# Resource ceiling — the agent should never need more than this.
+MemoryHigh=64M
+MemoryMax=128M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
