@@ -5,7 +5,7 @@ Theoria is a self-hosted observability platform that combines server metrics, sy
 It has a friendly web interface, zero-config single-node setup, and scales horizontally with optional TimescaleDB and Redis. Distributed as an npm CLI (`theoria-cli`) and a static Go agent.
 
 [![npm](https://img.shields.io/npm/v/theoria-cli?color=2ea44f)](https://www.npmjs.com/package/theoria-cli)
-[![license](https://img.shields.io/badge/license-ISC-%239944ee)](LICENSE)
+[![license](https://img.shields.io/badge/license-Apache%202.0-%239944ee)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)](#getting-started)
 [![go](https://img.shields.io/badge/go-1.25-00ADD8)](agent/go.mod)
 [![helm](https://img.shields.io/badge/helm-chart-0F1689)](charts/theoria/Chart.yaml)
@@ -89,4 +89,4 @@ Please search existing issues and discussions before opening a new one.
 
 ## License
 
-Theoria is licensed under the ISC License. See the [LICENSE](LICENSE) file for more details.
+Theoria is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.

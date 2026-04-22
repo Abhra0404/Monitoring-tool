@@ -130,4 +130,4 @@ advisory on GitHub.
 ## License
 
 By contributing, you agree that your contributions will be licensed under the
-same [ISC License](LICENSE) that covers the project.
+same [Apache License, Version 2.0](LICENSE) that covers the project.
