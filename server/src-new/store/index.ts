@@ -242,13 +242,16 @@ setInterval(() => {
   data.metrics = data.metrics.filter((m) => m.timestamp >= cutoff);
   if (data.metrics.length < before) {
     const byServer: Record<string, number> = {};
+    // Use \x1f (unit separator) so host strings containing ':' (IPv6, labels)
+    // don't break the reverse split.
+    const SEP = "\x1f";
     for (const m of data.metrics) {
-      const key = `${m.userId}:${m.labels?.host || ""}`;
+      const key = `${m.userId}${SEP}${m.labels?.host || ""}`;
       byServer[key] = (byServer[key] || 0) + 1;
     }
     for (const [key, count] of Object.entries(byServer)) {
       if (count > MAX_METRICS_PER_SERVER) {
-        const [userId, host] = key.split(":");
+        const [userId, host] = key.split(SEP);
         const serverMetrics = data.metrics.filter(
           (m) => m.userId === userId && m.labels?.host === host,
         );

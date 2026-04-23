@@ -9,6 +9,13 @@ import { Server } from "socket.io";
 import type { FastifyInstance } from "fastify";
 import { getConfig } from "../config.js";
 
+function extractBearer(h: string | string[] | undefined): string | undefined {
+  const v = Array.isArray(h) ? h[0] : h;
+  if (!v) return undefined;
+  const m = v.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : undefined;
+}
+
 export default fp(
   async function socketioPlugin(app: FastifyInstance) {
     const config = getConfig();
@@ -19,6 +26,25 @@ export default fp(
 
     const io = new Server(app.server, {
       cors: { origin: corsOrigins },
+    });
+
+    // Require a valid JWT on connect. Clients pass it via `auth.token` in the
+    // handshake. Without this, anyone who can reach the port receives every
+    // broadcast (metrics, alerts, etc).
+    io.use((socket, next) => {
+      const token =
+        (socket.handshake.auth as { token?: string } | undefined)?.token ||
+        extractBearer(socket.handshake.headers.authorization);
+      if (!token) return next(new Error("unauthorized"));
+      (async () => {
+        try {
+          const payload = (await app.jwt.verify(token)) as { sub: string };
+          (socket.data as { userId?: string }).userId = payload.sub;
+          next();
+        } catch {
+          next(new Error("unauthorized"));
+        }
+      })();
     });
 
     if (app.redis) {
@@ -32,10 +58,12 @@ export default fp(
     }
 
     io.on("connection", (socket) => {
-      app.log.info(`Client connected: ${socket.id}`);
+      const userId = (socket.data as { userId?: string }).userId;
+      app.log.info({ socketId: socket.id, userId }, "Client connected");
       socket.join("all");
+      if (userId) socket.join(`user:${userId}`);
       socket.on("disconnect", () => {
-        app.log.info(`Client disconnected: ${socket.id}`);
+        app.log.info({ socketId: socket.id, userId }, "Client disconnected");
       });
     });
 
@@ -45,5 +73,5 @@ export default fp(
       io.close();
     });
   },
-  { name: "socketio", dependencies: ["redis"] },
+  { name: "socketio", dependencies: ["redis", "auth"] },
 );

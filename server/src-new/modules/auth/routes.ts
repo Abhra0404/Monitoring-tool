@@ -20,6 +20,10 @@ import type { SystemUser } from "../../shared/types.js";
 
 const BCRYPT_COST = 12;
 
+// Serialise concurrent POST /api/auth/register on first boot so two races
+// can't both observe `countNonSystem === 0` and both get admin.
+let registrationChain: Promise<unknown> = Promise.resolve();
+
 // ── JSON Schemas ──────────────────────────────────────────────────────────
 
 const credentialsSchema = {
@@ -71,25 +75,32 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     async (req: FastifyRequest, reply: FastifyReply) => {
       const { email, password } = req.body as { email: string; password: string };
 
-      const bootstrapping = app.store.Users.countNonSystem() === 0;
-      if (!bootstrapping && !config.ALLOW_REGISTRATION) {
-        return reply.status(403).send({ error: "Registration is disabled" });
-      }
-
-      if (app.store.Users.findByEmail(email)) {
-        return reply.status(409).send({ error: "Email already registered" });
-      }
-
-      const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
-      const user = app.store.Users.create({
-        email,
-        password: passwordHash,
-        role: bootstrapping ? "admin" : "user",
-        isSystem: false,
+      // Serialise against concurrent first-boot registrations.
+      const run = registrationChain.then(async () => {
+        const bootstrapping = app.store.Users.countNonSystem() === 0;
+        if (!bootstrapping && !config.ALLOW_REGISTRATION) {
+          return { status: 403 as const, body: { error: "Registration is disabled" } };
+        }
+        if (app.store.Users.findByEmail(email)) {
+          return { status: 409 as const, body: { error: "Email already registered" } };
+        }
+        const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
+        // Re-check after the hash — another request may have created the admin.
+        if (bootstrapping && app.store.Users.countNonSystem() > 0) {
+          return { status: 409 as const, body: { error: "Email already registered" } };
+        }
+        const user = app.store.Users.create({
+          email,
+          password: passwordHash,
+          role: bootstrapping ? "admin" : "user",
+          isSystem: false,
+        });
+        const tokens = await app.signTokens(user);
+        return { status: 201 as const, body: { user: publicUser(user), ...tokens } };
       });
-
-      const tokens = await app.signTokens(user);
-      return reply.status(201).send({ user: publicUser(user), ...tokens });
+      registrationChain = run.catch(() => undefined);
+      const result = await run;
+      return reply.status(result.status).send(result.body);
     },
   );
 

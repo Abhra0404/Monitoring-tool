@@ -193,8 +193,8 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     redis: app.redis?.client,
   });
 
-  await app.register(socketioPlugin);
   await app.register(authPlugin);
+  await app.register(socketioPlugin);
   await app.register(lockoutPlugin);
   await app.register(internalMetricsPlugin);
   await app.register(sentryPlugin);

@@ -43,8 +43,11 @@ export default fp(
       },
     });
 
-    app.addHook("onError", async (req: FastifyRequest, _reply, err) => {
-      if (req.raw.statusCode && req.raw.statusCode < 500) return;
+    app.addHook("onError", async (req: FastifyRequest, reply, err) => {
+      // Fastify sets reply.statusCode to the error's status (e.g. 500) before
+      // running the onError hook; req.raw.statusCode is still the default 200
+      // until the reply is actually written. Use reply.statusCode.
+      if (reply.statusCode && reply.statusCode < 500) return;
       Sentry.withScope((scope) => {
         scope.setTag("route", req.routeOptions?.url ?? req.url);
         scope.setTag("method", req.method);

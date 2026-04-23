@@ -23,6 +23,12 @@ const CLIENT_BUILD = path.join(PKG_DIR, "client", "build");
 const CONFIG_DIR = path.join(os.homedir(), ".theoria");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 
+// ── Version (read from package.json so banners stay in sync) ──────────
+let VERSION = "0.0.0";
+try {
+  VERSION = require(path.join(PKG_DIR, "package.json")).version || VERSION;
+} catch {}
+
 // ── Colors ───────────────────────────────────────────────────────────────
 const c = {
   reset: "\x1b[0m",
@@ -52,6 +58,10 @@ for (let i = 0; i < flagArgs.length; i++) {
   else if (flagArgs[i] === "--help" || flagArgs[i] === "-h") {
     if (subcommand === "plugin") { continue; } // let plugin handler show its own help
     printHelp();
+    process.exit(0);
+  }
+  else if (flagArgs[i] === "--version" || flagArgs[i] === "-v") {
+    console.log(VERSION);
     process.exit(0);
   }
 }
@@ -148,12 +158,12 @@ function printBanner(port) {
   const localIP = getLocalIP();
   console.log(`
 ${c.bold}${c.green}
-  ███╗   ███╗ ██████╗ ███╗   ██╗██╗████████╗ ██████╗ ██████╗ ██╗  ██╗
-  ████╗ ████║██╔═══██╗████╗  ██║██║╚══██╔══╝██╔═══██╗██╔══██╗╚██╗██╔╝
-  ██╔████╔██║██║   ██║██╔██╗ ██║██║   ██║   ██║   ██║██████╔╝ ╚███╔╝
-  ██║╚██╔╝██║██║   ██║██║╚██╗██║██║   ██║   ██║   ██║██╔══██╗ ██╔██╗
-  ██║ ╚═╝ ██║╚██████╔╝██║ ╚████║██║   ██║   ╚██████╔╝██║  ██║██╔╝ ██╗
-  ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
+  ████████╗██╗  ██╗███████╗ ██████╗ ██████╗ ██╗ █████╗
+  ╚══██╔══╝██║  ██║██╔════╝██╔═══██╗██╔══██╗██║██╔══██╗
+     ██║   ███████║█████╗  ██║   ██║██████╔╝██║███████║
+     ██║   ██╔══██║██╔══╝  ██║   ██║██╔══██╗██║██╔══██║
+     ██║   ██║  ██║███████╗╚██████╔╝██║  ██║██║██║  ██║
+     ╚═╝   ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
 ${c.reset}
   ${c.bold}Dashboard:${c.reset}   ${c.cyan}http://localhost:${port}${c.reset}
   ${c.bold}Network:${c.reset}     ${c.cyan}http://${localIP}:${port}${c.reset}
@@ -255,7 +265,7 @@ function resolveAgentCommand() {
 }
 
 async function startAgent() {
-  console.log(`\n${c.bold}${c.green}Theoria Agent${c.reset} ${c.dim}v1.0.2${c.reset}\n`);
+  console.log(`\n${c.bold}${c.green}Theoria Agent${c.reset} ${c.dim}v${VERSION}${c.reset}\n`);
 
   // Interactive prompts if flags not provided
   let url = flags.url;
@@ -472,7 +482,7 @@ async function main() {
     return startAgent();
   }
 
-  console.log(`\n${c.bold}${c.green}Theoria${c.reset} ${c.dim}v1.0.2${c.reset}\n`);
+  console.log(`\n${c.bold}${c.green}Theoria${c.reset} ${c.dim}v${VERSION}${c.reset}\n`);
 
   // ── Verify server entry exists ──
   if (!fs.existsSync(SERVER_ENTRY)) {

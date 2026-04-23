@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -188,11 +189,14 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 	if v == "" {
 		return fallback
 	}
-	ms, err := time.ParseDuration(v + "ms")
-	if err != nil {
-		return fallback
+	// Accept a bare integer (ms) or a Go duration string (e.g. "5s").
+	if n, err := strconv.Atoi(v); err == nil {
+		return time.Duration(n) * time.Millisecond
 	}
-	return ms
+	if d, err := time.ParseDuration(v); err == nil {
+		return d
+	}
+	return fallback
 }
 
 func envBool(key string) bool {

@@ -205,6 +205,7 @@ function makeRequest(urlStr: string): Promise<{ statusCode: number; responseTime
       }
 
       res.resume();
+      res.on("error", (err) => reject(err));
       res.on("end", () => {
         resolve({ statusCode: res.statusCode ?? 0, responseTime, sslDaysRemaining });
       });

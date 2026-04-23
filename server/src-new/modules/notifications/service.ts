@@ -31,6 +31,7 @@ function sendSlack(webhookUrl: string, payload: Record<string, unknown>): Promis
     const mod = url.protocol === "https:" ? https : http;
     const req = mod.request(opts, (res) => {
       let data = "";
+      res.on("error", reject);
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);
@@ -51,13 +52,15 @@ function sendDiscord(webhookUrl: string, payload: Record<string, unknown>): Prom
     const body = JSON.stringify(payload);
     const opts = {
       hostname: url.hostname,
-      port: url.port || 443,
+      port: url.port || (url.protocol === "https:" ? 443 : 80),
       path: url.pathname + url.search,
       method: "POST" as const,
       headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
     };
-    const req = https.request(opts, (res) => {
+    const mod = url.protocol === "https:" ? https : http;
+    const req = mod.request(opts, (res) => {
       let data = "";
+      res.on("error", reject);
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);
@@ -83,6 +86,7 @@ function sendTelegram(botToken: string, chatId: string, text: string): Promise<s
     };
     const req = https.request(opts, (res) => {
       let data = "";
+      res.on("error", reject);
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);
@@ -112,6 +116,7 @@ function sendTeams(webhookUrl: string, card: Record<string, unknown>): Promise<s
       },
       (res) => {
         let data = "";
+        res.on("error", reject);
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);
@@ -139,6 +144,7 @@ function sendPagerDuty(routingKey: string, event: Record<string, unknown>): Prom
       },
       (res) => {
         let data = "";
+        res.on("error", reject);
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           // PagerDuty returns 202 Accepted on success.
@@ -169,6 +175,7 @@ function sendWebhook(url: string, payload: Record<string, unknown>, method = "PO
     };
     const req = mod.request(opts, (res) => {
       let data = "";
+      res.on("error", reject);
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) resolve(data);

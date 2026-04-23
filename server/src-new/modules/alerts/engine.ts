@@ -218,7 +218,12 @@ function resolveAlert(
 }
 
 function determineSeverity(threshold: number, actualValue: number): "info" | "warning" | "critical" {
-  const ratio = Math.abs(actualValue / (threshold || 1));
+  // Direction-agnostic breach magnitude: how far the value deviates from the
+  // threshold, regardless of whether the rule was ">" or "<". For a `<` rule
+  // with threshold=10 and actual=2, the breach is 5x, not 0.2x.
+  const a = Math.abs(actualValue);
+  const t = Math.max(Math.abs(threshold), 1e-9);
+  const ratio = Math.max(a, t) / Math.max(Math.min(a, t), 1e-9);
   if (ratio > 1.5) return "critical";
   if (ratio > 1.1) return "warning";
   return "info";

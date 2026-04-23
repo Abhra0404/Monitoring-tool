@@ -126,7 +126,10 @@ export default fp(
           });
           return { locked: true, remaining: 0 };
         }
-        local.set(key, { count, firstAt, lockedUntil: 0 });
+        // Preserve any active lock while updating the failure counter — don't
+        // overwrite `lockedUntil` with 0 if a previous burst is still locked.
+        const lockedUntil = existing?.lockedUntil && existing.lockedUntil > now ? existing.lockedUntil : 0;
+        local.set(key, { count, firstAt, lockedUntil });
         return { locked: false, remaining: MAX_FAILURES - count };
       },
       async recordSuccess(email, ip) {
