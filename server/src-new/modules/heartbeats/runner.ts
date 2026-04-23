@@ -37,6 +37,15 @@ export function stopHeartbeatSweeper(): void {
   }
 }
 
+/**
+ * Called from DELETE /api/heartbeats/:id so a deleted monitor's down-state
+ * doesn't persist in memory (and, if a new monitor is later created with
+ * the same ID, it doesn't inherit a phantom "firing" status).
+ */
+export function clearMonitorState(monitorId: string): void {
+  downMonitors.delete(monitorId);
+}
+
 export function recordPing(monitor: HeartbeatMonitor): HeartbeatMonitor {
   const wasDown = downMonitors.has(monitor._id);
   const updated = _store.HeartbeatMonitors.update(monitor._id, {

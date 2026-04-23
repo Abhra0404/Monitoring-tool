@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { recordPing } from "./runner.js";
+import { recordPing, clearMonitorState } from "./runner.js";
 
 const SLUG_PATTERN = "^[a-z0-9][a-z0-9-]{1,62}$";
 
@@ -68,6 +68,7 @@ export default async function heartbeatsRoutes(app: FastifyInstance): Promise<vo
     scoped.delete("/:monitorId", async (req: FastifyRequest<{ Params: { monitorId: string } }>, reply: FastifyReply) => {
       const removed = app.store.HeartbeatMonitors.delete(req.params.monitorId, req.user._id);
       if (!removed) return reply.status(404).send({ error: "Heartbeat monitor not found" });
+      clearMonitorState(req.params.monitorId);
       return { success: true };
     });
 

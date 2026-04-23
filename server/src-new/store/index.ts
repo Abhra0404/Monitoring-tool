@@ -253,7 +253,9 @@ function ensureSystemUser(): SystemUser {
 const systemUser = ensureSystemUser();
 
 // ── Metric cleanup (every 60s) ──
-setInterval(() => {
+// `.unref()` so this timer never keeps the event loop alive during tests or
+// graceful shutdown. Same for every recurring cleanup below.
+const metricCleanup = setInterval(() => {
   const cutoff = Date.now() - METRIC_TTL_MS;
   const before = data.metrics.length;
   data.metrics = data.metrics.filter((m) => m.timestamp >= cutoff);
@@ -281,9 +283,10 @@ setInterval(() => {
     }
   }
 }, 60_000);
+metricCleanup.unref?.();
 
 // Auto-cleanup alert history older than 30 days
-setInterval(() => {
+const alertHistoryCleanup = setInterval(() => {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const before = data.alertHistory.length;
   data.alertHistory = data.alertHistory.filter(
@@ -291,6 +294,7 @@ setInterval(() => {
   );
   if (data.alertHistory.length < before) schedulePersist();
 }, 3_600_000);
+alertHistoryCleanup.unref?.();
 
 // ── Users ──
 const Users = {
@@ -906,7 +910,7 @@ const RefreshTokens = {
 };
 
 // Prune expired/revoked refresh tokens hourly to keep the store compact.
-setInterval(() => RefreshTokens.pruneExpired(), 3_600_000);
+setInterval(() => RefreshTokens.pruneExpired(), 3_600_000).unref?.();
 
 // ── TCP Checks ──
 const MAX_CHECK_RESULTS = 100;
