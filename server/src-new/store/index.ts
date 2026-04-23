@@ -49,6 +49,17 @@ const PERSIST_DEBOUNCE_MS = 5000;
 export const SYSTEM_USER_ID = "000000000000000000000001";
 
 /**
+ * Constant-time string equality. `===` on strings is not guaranteed to be
+ * constant-time in V8, so use it when comparing secrets (API keys, token
+ * hashes). Returns false immediately for mismatched lengths \u2014 that's fine
+ * because the length of a hash/API key isn't itself a secret.
+ */
+function timingSafeStrEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+/**
  * JSON snapshot gate.
  *
  * The snapshot is the only source of truth in zero-config mode. As soon as
@@ -161,6 +172,12 @@ function persistSync(): void {
 }
 
 function loadFromDisk(): void {
+  // SKIP_JSON_SNAPSHOT gates both reads and writes — tests and DATABASE_URL
+  // mode must start from a clean in-memory state so results don't leak across
+  // runs. Without this guard, a stale ~/.theoria/store.json from a previous
+  // run will silently hydrate tests (e.g. a prior status-page test leaving
+  // `isPublic: true` breaks the "404 when not enabled" assertion).
+  if (SKIP_JSON_SNAPSHOT) return;
   try {
     if (fs.existsSync(PERSIST_FILE)) {
       const raw = JSON.parse(fs.readFileSync(PERSIST_FILE, "utf8"));
@@ -284,7 +301,7 @@ const Users = {
     return data.users.find((u) => u.email === email.toLowerCase().trim()) ?? null;
   },
   findByApiKey(apiKey: string): SystemUser | null {
-    return data.users.find((u) => u.apiKey === apiKey) ?? null;
+    return data.users.find((u) => u.apiKey != null && timingSafeStrEqual(u.apiKey, apiKey)) ?? null;
   },
   count(): number {
     return data.users.length;
@@ -846,14 +863,14 @@ const RefreshTokens = {
   },
   findValidByHash(tokenHash: string): RefreshTokenRecord | null {
     const now = Date.now();
-    const record = data.refreshTokens.find((t) => t.tokenHash === tokenHash);
+    const record = data.refreshTokens.find((t) => timingSafeStrEqual(t.tokenHash, tokenHash));
     if (!record) return null;
     if (record.revokedAt) return null;
     if (new Date(record.expiresAt).getTime() < now) return null;
     return record;
   },
   revoke(tokenHash: string): RefreshTokenRecord | null {
-    const record = data.refreshTokens.find((t) => t.tokenHash === tokenHash);
+    const record = data.refreshTokens.find((t) => timingSafeStrEqual(t.tokenHash, tokenHash));
     if (!record || record.revokedAt) return null;
     record.revokedAt = new Date().toISOString();
     schedulePersist();

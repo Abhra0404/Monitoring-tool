@@ -88,14 +88,14 @@ export default fp(
         return client.get(key);
       },
       async bumpWithExpiry(key, ttlSeconds) {
-        const pipe = client.multi();
-        pipe.incr(key);
-        pipe.expire(key, ttlSeconds);
-        const results = await pipe.exec();
-        if (!results) return 0;
-        const [err, value] = results[0];
-        if (err) throw err;
-        return Number(value);
+        // Anchor the TTL on the first INCR only — otherwise the window slides
+        // forever and counters that should expire never do. INCR returns the
+        // post-increment value; 1 means the key was just created.
+        const value = Number(await client.incr(key));
+        if (value === 1) {
+          await client.expire(key, ttlSeconds);
+        }
+        return value;
       },
       async quit() {
         await Promise.allSettled([client.quit(), subscriber.quit()]);

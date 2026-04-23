@@ -146,10 +146,18 @@ function getLocalIP() {
 
 // ── Open browser ────────────────────────────────────────────────────────
 function openBrowser(url) {
+  // Use spawn with an argv array so the URL is never re-parsed by the shell.
+  const { spawn } = require("child_process");
   try {
-    if (process.platform === "darwin") execSync(`open "${url}"`);
-    else if (process.platform === "win32") execSync(`start "" "${url}"`);
-    else execSync(`xdg-open "${url}" 2>/dev/null || true`);
+    if (process.platform === "darwin") {
+      spawn("open", [url], { stdio: "ignore", detached: true }).unref();
+    } else if (process.platform === "win32") {
+      // On Windows, `start` is a cmd.exe builtin, not an exe. The empty
+      // first "title" arg prevents start from interpreting the URL as one.
+      spawn("cmd", ["/c", "start", "", url], { stdio: "ignore", detached: true }).unref();
+    } else {
+      spawn("xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+    }
   } catch {}
 }
 

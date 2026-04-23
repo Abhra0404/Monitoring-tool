@@ -60,12 +60,25 @@ const useSocketStore = create<SocketState>((set, get) => ({
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: Infinity,
+      reconnectionDelayMax: 10_000,
+      // Cap retries so an expired/revoked token doesn't reconnect forever.
+      reconnectionAttempts: 10,
       auth: { token },
     });
 
     socket.on("connect", () => set({ connected: true }));
     socket.on("disconnect", () => set({ connected: false }));
+
+    // Auth errors from the server-side io.use() middleware arrive as
+    // connect_error with message "unauthorized". Force a logout so the user
+    // is redirected to /login instead of retrying with a stale token.
+    socket.on("connect_error", (err: Error) => {
+      if (err.message === "unauthorized") {
+        socket.disconnect();
+        set({ socket: null, connected: false });
+        useAuthStore.getState().clear();
+      }
+    });
 
     socket.on("metrics", (data: MetricSnapshot) => {
       set((state) => ({
