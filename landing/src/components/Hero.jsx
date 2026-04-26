@@ -61,11 +61,13 @@ export default function Hero() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, ease, delay: 0.06 }}
-            className="heading-display mt-7 text-fg"
+            className="heading-display mt-7 text-fg text-balance [overflow-wrap:normal] [word-break:keep-all]"
           >
-            Monitoring without the{" "}
-            <span className="bg-gradient-to-br from-white via-brand-bright to-brand bg-clip-text text-transparent">
-              SaaS bill.
+            <span className="block whitespace-nowrap">
+              Monitoring without
+            </span>
+            <span className="block whitespace-nowrap bg-gradient-to-br from-white via-brand-bright to-brand bg-clip-text text-transparent">
+              the SaaS bill.
             </span>
           </motion.h1>
 
@@ -75,9 +77,9 @@ export default function Hero() {
             transition={{ duration: 0.65, ease, delay: 0.12 }}
             className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-fg-1"
           >
-            Theoria is the open-source convergence of Uptime Kuma and Beszel —
-            metrics, synthetic checks, alerting, incidents and a public status
-            page in a single self-hosted binary.
+            Theoria unifies host metrics, synthetic checks, heartbeats, alerts
+            and a public status page into a single self-hosted process — open
+            source, no SaaS, no per-host pricing.
           </motion.p>
 
           {/* Install command + CTAs */}
@@ -91,48 +93,15 @@ export default function Hero() {
               <div className="flex items-center gap-3 px-4 py-[0.7rem]">
                 <span className="select-none text-brand">$</span>
                 <code className="flex-1 text-left text-fg">
-                  npx theoria-cli<span className="caret" />
+                  npm install theoria-cli<span className="caret" />
                 </code>
-                <CopyButton text="npx theoria-cli" />
+                <CopyButton text="npm install theoria-cli" />
               </div>
             </div>
 
             <a href="#install" className="btn btn-primary">
               Install guide
               <ArrowRight size={14} />
-            </a>
-          </motion.div>
-
-          {/* Secondary actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, ease, delay: 0.24 }}
-            className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-fg-2"
-          >
-            <a
-              href="https://github.com/Abhra0404/Monitoring-tool"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-fg-1 hover:text-fg transition-colors"
-            >
-              <GitHubIcon size={14} />
-              <span>Star on GitHub</span>
-              <span className="inline-flex items-center gap-1 text-fg-2">
-                <Star size={12} className="text-brand" /> 2.1k
-              </span>
-            </a>
-            <a
-              href="#docs"
-              className="text-fg-1 hover:text-fg transition-colors"
-            >
-              Read the docs
-            </a>
-            <a
-              href="#compare"
-              className="text-fg-1 hover:text-fg transition-colors"
-            >
-              Compare vs. Datadog
             </a>
           </motion.div>
 
