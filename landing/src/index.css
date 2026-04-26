@@ -333,3 +333,61 @@ body {
   html { scroll-behavior: auto; }
 }
 
+/* ── Docs typography & primitives ─────────────────────── */
+.doc-prose { color: var(--color-fg-1); font-size: 15px; line-height: 1.75; }
+.doc-prose h1 {
+  font-size: clamp(1.875rem, 3vw, 2.25rem);
+  line-height: 1.15; letter-spacing: -0.02em; font-weight: 600;
+  color: var(--color-fg);
+}
+.doc-prose h2 {
+  font-size: 1.375rem; line-height: 1.25; letter-spacing: -0.015em;
+  font-weight: 600; color: var(--color-fg);
+  margin-top: 2.25rem; padding-top: 0.5rem;
+  border-top: 1px solid var(--color-stroke);
+}
+.doc-prose h2:first-of-type { border-top: 0; padding-top: 0; }
+.doc-prose h3 {
+  font-size: 1.05rem; line-height: 1.35; letter-spacing: -0.01em;
+  font-weight: 600; color: var(--color-fg); margin-top: 1.75rem;
+}
+.doc-prose p { margin: 0.85rem 0; }
+.doc-prose ul, .doc-prose ol { margin: 0.85rem 0; padding-left: 1.25rem; }
+.doc-prose ul { list-style: disc; }
+.doc-prose ol { list-style: decimal; }
+.doc-prose li { margin: 0.35rem 0; }
+.doc-prose li::marker { color: var(--color-fg-3); }
+.doc-prose a { color: var(--color-brand-bright); text-decoration: underline; text-decoration-color: var(--color-stroke-2); text-underline-offset: 3px; }
+.doc-prose a:hover { text-decoration-color: var(--color-brand); }
+.doc-prose strong { color: var(--color-fg); font-weight: 600; }
+.doc-prose code {
+  font-family: var(--font-mono); font-size: 0.85em;
+  padding: 0.12rem 0.38rem; border-radius: 5px;
+  background: var(--color-surface-2); border: 1px solid var(--color-stroke);
+  color: var(--color-fg);
+}
+.doc-prose pre code {
+  padding: 0; background: transparent; border: 0; font-size: 0.85rem; color: var(--color-fg-1);
+}
+.doc-prose hr { border: 0; border-top: 1px solid var(--color-stroke); margin: 2rem 0; }
+
+/* Docs sidebar nav-link active state */
+.doc-nav-link {
+  display: block;
+  padding: 0.3rem 0.6rem;
+  font-size: 13px;
+  color: var(--color-fg-2);
+  border-radius: 6px;
+  transition: color 160ms ease, background 160ms ease;
+  border-left: 1px solid transparent;
+  margin-left: -0.6rem;
+  padding-left: 0.85rem;
+}
+.doc-nav-link:hover { color: var(--color-fg); background: rgba(255,255,255,0.02); }
+.doc-nav-link.is-active {
+  color: var(--color-brand-bright);
+  background: var(--color-brand-soft);
+  border-left-color: var(--color-brand);
+}
+
+

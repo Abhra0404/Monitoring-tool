@@ -73,10 +73,10 @@ export default function Footer() {
     {
       title: "Resources",
       links: [
-        { label: "Documentation", href: "https://github.com/Abhra0404/Monitoring-tool#readme" },
-        { label: "Runbook", href: "https://github.com/Abhra0404/Monitoring-tool/blob/main/docs/runbook.md" },
-        { label: "Plugin authoring", href: "https://github.com/Abhra0404/Monitoring-tool/blob/main/docs/plugin-authoring.md" },
-        { label: "Architecture", href: "https://github.com/Abhra0404/Monitoring-tool/blob/main/docs/architecture.md" },
+        { label: "Documentation", href: "/docs" },
+        { label: "Quickstart", href: "/docs/quickstart" },
+        { label: "CLI reference", href: "/docs/cli" },
+        { label: "FAQ", href: "/docs/faq" },
       ],
     },
   ];

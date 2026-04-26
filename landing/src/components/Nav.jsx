@@ -20,8 +20,8 @@ const PILL_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const PILL_TRANSITION = `all 500ms ${PILL_EASE}`;
 
 const DESKTOP_LINKS = [
-  { href: "#features", label: "Features" },
-  { href: "#docs", label: "Docs" },
+  { href: "/#features", label: "Features" },
+  { href: "/docs", label: "Docs" },
 ];
 
 export default function Nav() {
