@@ -414,8 +414,6 @@ const Metrics = {
       data.metrics.push(record);
       records.push(record);
     }
-    if (records.length > 0) {
-    }
   },
   find(userId: string, host: string, startTime: Date | number): MetricRecord[] {
     const startMs = startTime instanceof Date ? startTime.getTime() : startTime;
@@ -530,20 +528,14 @@ const AlertHistory = {
   },
   resolveByRuleId(ruleId: string): number {
     let count = 0;
-    const resolved: AlertHistoryEntry[] = [];
     for (const a of data.alertHistory) {
       if (a.ruleId === ruleId && a.status === "firing") {
         a.status = "resolved";
         a.resolvedAt = new Date().toISOString();
         count++;
-        resolved.push(a);
       }
     }
-    if (count > 0) {
-      schedulePersist();
-      for (const entry of resolved) {
-      }
-    }
+    if (count > 0) schedulePersist();
     return count;
   },
   replaceAll(entries: AlertHistoryEntry[]): void {
@@ -586,13 +578,8 @@ const HttpChecks = {
   update(id: string, updates: Partial<HttpCheck & { results: HttpCheckResult[] }>): (HttpCheck & { results: HttpCheckResult[] }) | null {
     const check = this.findById(id);
     if (!check) return null;
-    const prevResultsLen = check.results?.length ?? 0;
     Object.assign(check, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    // Emit newly appended results as time-series rows.
-    const newResults = (updates.results || []).slice(prevResultsLen);
-    if (newResults.length > 0) {
-    }
     return check;
   },
   delete(id: string, userId: string): HttpCheck | null {
@@ -745,14 +732,12 @@ const DockerContainers = {
     return data.dockerContainers.filter((c) => c.userId === userId);
   },
   upsertMany(userId: string, serverId: string, containers: Array<Partial<DockerContainer>>): void {
-    const updated: DockerContainer[] = [];
     for (const container of containers) {
       const existing = data.dockerContainers.find(
         (c) => c.userId === userId && c.serverId === serverId && c.containerId === container.containerId,
       );
       if (existing) {
         Object.assign(existing, container, { updatedAt: new Date().toISOString() });
-        updated.push(existing);
       } else {
         const next = {
           _id: genId(),
@@ -762,10 +747,7 @@ const DockerContainers = {
           ...container,
         } as DockerContainer;
         data.dockerContainers.push(next);
-        updated.push(next);
       }
-    }
-    if (updated.length > 0) {
     }
   },
 };

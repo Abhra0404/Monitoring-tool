@@ -31,20 +31,18 @@ export default fp(
     // Require a valid JWT on connect. Clients pass it via `auth.token` in the
     // handshake. Without this, anyone who can reach the port receives every
     // broadcast (metrics, alerts, etc).
-    io.use((socket, next) => {
+    io.use(async (socket, next) => {
       const token =
         (socket.handshake.auth as { token?: string } | undefined)?.token ||
         extractBearer(socket.handshake.headers.authorization);
       if (!token) return next(new Error("unauthorized"));
-      (async () => {
-        try {
-          const payload = (await app.jwt.verify(token)) as { sub: string };
-          (socket.data as { userId?: string }).userId = payload.sub;
-          next();
-        } catch {
-          next(new Error("unauthorized"));
-        }
-      })();
+      try {
+        const payload = (await app.jwt.verify(token)) as { sub: string };
+        (socket.data as { userId?: string }).userId = payload.sub;
+        next();
+      } catch {
+        next(new Error("unauthorized"));
+      }
     });
 
     if (app.redis) {

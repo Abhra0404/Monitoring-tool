@@ -108,10 +108,10 @@ const useSocketStore = create<SocketState>((set, get) => ({
       }));
     });
 
-    socket.on("alert:resolved", (alert: Pick<AlertHistoryEntry, "id" | "status" | "message">) => {
+    socket.on("alert:resolved", (alert: Pick<AlertHistoryEntry, "_id" | "status" | "message">) => {
       set((state) => ({
         alerts: state.alerts.map((a) =>
-          a.id === alert.id ? { ...a, status: "resolved" as const, message: alert.message } : a,
+          a._id === alert._id ? { ...a, status: "resolved" as const, message: alert.message } : a,
         ),
       }));
     });
