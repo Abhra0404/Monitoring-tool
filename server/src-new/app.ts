@@ -102,6 +102,15 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
                 'res.headers["set-cookie"]',
                 'req.body.password',
                 'req.body.refreshToken',
+                // Notification channel secrets — these arrive in plaintext
+                // on POST/PUT /api/notifications/channels and must not be
+                // mirrored into structured request-body logs.
+                'req.body.config.smtpPass',
+                'req.body.config.botToken',
+                'req.body.config.webhookUrl',
+                'req.body.config.routingKey',
+                'req.body.config.url',
+                'req.body.config.apiKey',
               ],
               remove: true,
             },
@@ -152,7 +161,9 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
               styleSrc: ["'self'", "'unsafe-inline'"],
               scriptSrc: ["'self'"],
               imgSrc: ["'self'", "data:", "https:"],
-              connectSrc: ["'self'", "ws:", "wss:"],
+              // Same-origin only — Socket.IO upgrades to ws(s) on the
+              // server's own origin, which is already covered by 'self'.
+              connectSrc: ["'self'"],
               fontSrc: ["'self'", "data:"],
               objectSrc: ["'none'"],
               frameAncestors: ["'self'"],

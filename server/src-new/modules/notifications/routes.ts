@@ -5,19 +5,35 @@ import { testChannel as testChannelService } from "./service.js";
 
 const SUPPORTED_TYPES = ["slack", "email", "discord", "telegram", "webhook", "teams", "pagerduty"];
 
+// Fields whose values are credentials and must never be returned to a
+// dashboard caller. Slack/Discord webhook URLs *are* the credential, as
+// is a PagerDuty routingKey or Telegram botToken (round-2 audit #13).
+const SECRET_CONFIG_FIELDS = [
+  "smtpPass",
+  "botToken",
+  "webhookUrl",
+  "routingKey",
+  "apiKey",
+  "url", // generic-webhook
+] as const;
+
+function maskConfig(config: Record<string, unknown> | undefined | null): Record<string, unknown> {
+  const masked: Record<string, unknown> = { ...(config ?? {}) };
+  for (const k of SECRET_CONFIG_FIELDS) {
+    if (typeof masked[k] === "string" && (masked[k] as string).length > 0) {
+      masked[k] = "••••••••";
+    }
+  }
+  return masked;
+}
+
 export default async function notificationsRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
 
   // GET /api/notifications/channels
   app.get("/channels", async (req: FastifyRequest) => {
     const channels = app.store.NotificationChannels.find(req.user._id);
-    return channels.map((c) => {
-      const safe = { ...c, config: { ...c.config } };
-      if ((safe.config as Record<string, unknown>).smtpPass) {
-        (safe.config as Record<string, string>).smtpPass = "••••••••";
-      }
-      return safe;
-    });
+    return channels.map((c) => ({ ...c, config: maskConfig(c.config as Record<string, unknown>) }));
   });
 
   // POST /api/notifications/channels
@@ -57,7 +73,7 @@ export default async function notificationsRoutes(app: FastifyInstance): Promise
       name: name.trim(),
       config,
     });
-    return reply.status(201).send(channel);
+    return reply.status(201).send({ ...channel, config: maskConfig(channel.config as Record<string, unknown>) });
   });
 
   // PUT /api/notifications/channels/:channelId
@@ -70,13 +86,20 @@ export default async function notificationsRoutes(app: FastifyInstance): Promise
     const updates: Record<string, unknown> = {};
     if (name) updates.name = name.trim();
     if (config) {
-      // Preserve existing smtpPass if masked value sent
-      if ((config as Record<string, string>).smtpPass === "••••••••" && (channel.config as Record<string, string>)?.smtpPass) {
-        (config as Record<string, string>).smtpPass = (channel.config as Record<string, string>).smtpPass;
+      // Preserve existing secret values if the dashboard re-sent the
+      // bullet-mask placeholder (which means the operator did not edit
+      // that field).
+      const existing = (channel.config ?? {}) as Record<string, unknown>;
+      const incoming = config as Record<string, unknown>;
+      for (const k of SECRET_CONFIG_FIELDS) {
+        if (incoming[k] === "••••••••" && typeof existing[k] === "string") {
+          incoming[k] = existing[k];
+        }
       }
-      updates.config = config;
+      updates.config = incoming;
     }
-    return app.store.NotificationChannels.update(req.params.channelId, updates);
+    const updated = app.store.NotificationChannels.update(req.params.channelId, updates);
+    return updated ? { ...updated, config: maskConfig(updated.config as Record<string, unknown>) } : updated;
   });
 
   // DELETE /api/notifications/channels/:channelId

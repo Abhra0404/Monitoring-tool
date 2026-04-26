@@ -8,6 +8,23 @@ import https from "https";
 import http from "http";
 import { URL } from "url";
 import type { Store } from "../../store/index.js";
+import { assertAllowedHttpUrl, assertAllowedHost } from "../../shared/check-targets.js";
+
+/**
+ * Escape a string for safe interpolation into HTML / Telegram-HTML
+ * messages. Notification bodies pull in user-supplied rule/metric/label
+ * values (often originating from agent-reported metric labels), so we
+ * must neutralize tag injection before they hit Telegram or an email
+ * client. See round-2 audit finding #7.
+ */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 let nodemailer: typeof import("nodemailer") | null = null;
 try {
@@ -19,7 +36,8 @@ try {
 // ── Provider: Slack ──
 function sendSlack(webhookUrl: string, payload: Record<string, unknown>): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = new URL(webhookUrl);
+    let url: URL;
+    try { url = assertAllowedHttpUrl(webhookUrl); } catch (e) { reject(e); return; }
     const body = JSON.stringify(payload);
     const opts = {
       hostname: url.hostname,
@@ -48,7 +66,8 @@ function sendSlack(webhookUrl: string, payload: Record<string, unknown>): Promis
 // ── Provider: Discord ──
 function sendDiscord(webhookUrl: string, payload: Record<string, unknown>): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = new URL(webhookUrl);
+    let url: URL;
+    try { url = assertAllowedHttpUrl(webhookUrl); } catch (e) { reject(e); return; }
     const body = JSON.stringify(payload);
     const opts = {
       hostname: url.hostname,
@@ -103,7 +122,8 @@ function sendTelegram(botToken: string, chatId: string, text: string): Promise<s
 // ── Provider: Microsoft Teams (Incoming Webhook / Adaptive Card) ──
 function sendTeams(webhookUrl: string, card: Record<string, unknown>): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = new URL(webhookUrl);
+    let url: URL;
+    try { url = assertAllowedHttpUrl(webhookUrl); } catch (e) { reject(e); return; }
     const body = JSON.stringify(card);
     const mod = url.protocol === "https:" ? https : http;
     const req = mod.request(
@@ -163,7 +183,8 @@ function sendPagerDuty(routingKey: string, event: Record<string, unknown>): Prom
 // ── Provider: Generic Webhook ──
 function sendWebhook(url: string, payload: Record<string, unknown>, method = "POST"): Promise<string> {
   return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
+    let parsed: URL;
+    try { parsed = assertAllowedHttpUrl(url); } catch (e) { reject(e); return; }
     const body = JSON.stringify(payload);
     const mod = parsed.protocol === "https:" ? https : http;
     const opts = {
@@ -237,7 +258,8 @@ function buildTelegramAlertText(alert: Record<string, unknown>, type: string): s
   const isResolved = type === "resolved";
   const emoji = isResolved ? "✅" : "🚨";
   const title = isResolved ? `Resolved: ${alert.ruleName || alert.message}` : `Alert: ${alert.ruleName}`;
-  return `${emoji} <b>${title}</b>\n\nMetric: ${alert.metricName || "N/A"}\nSeverity: ${alert.severity || "info"}\nValue: ${alert.actualValue ?? "N/A"}\nThreshold: ${alert.threshold ?? "N/A"}\n\n<i>Theoria • ${new Date().toISOString()}</i>`;
+  // Telegram parse_mode HTML — escape every interpolated value.
+  return `${emoji} <b>${escapeHtml(title)}</b>\n\nMetric: ${escapeHtml(alert.metricName ?? "N/A")}\nSeverity: ${escapeHtml(alert.severity ?? "info")}\nValue: ${escapeHtml(alert.actualValue ?? "N/A")}\nThreshold: ${escapeHtml(alert.threshold ?? "N/A")}\n\n<i>Theoria • ${new Date().toISOString()}</i>`;
 }
 
 function buildWebhookAlertPayload(alert: Record<string, unknown>, type: string) {
@@ -308,7 +330,7 @@ function buildAlertEmailHtml(alert: Record<string, unknown>, type: string): stri
   const isResolved = type === "resolved";
   const color = isResolved ? "#34d399" : alert.severity === "critical" ? "#ef4444" : "#f59e0b";
   const title = isResolved ? `Resolved: ${alert.ruleName || alert.message}` : `Alert: ${alert.ruleName}`;
-  return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;"><div style="background:${color};color:white;padding:16px 20px;border-radius:8px 8px 0 0;"><h2 style="margin:0;font-size:18px;">${title}</h2></div><div style="border:1px solid #e5e7eb;border-top:none;padding:20px;border-radius:0 0 8px 8px;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:8px 0;color:#6b7280;">Metric</td><td style="padding:8px 0;">${alert.metricName || "N/A"}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Severity</td><td style="padding:8px 0;">${alert.severity || "info"}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Value</td><td style="padding:8px 0;">${alert.actualValue ?? "N/A"}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Threshold</td><td style="padding:8px 0;">${alert.threshold ?? "N/A"}</td></tr></table><p style="color:#9ca3af;font-size:12px;margin-top:16px;">Theoria • ${new Date().toISOString()}</p></div></div>`;
+  return `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;"><div style="background:${color};color:white;padding:16px 20px;border-radius:8px 8px 0 0;"><h2 style="margin:0;font-size:18px;">${escapeHtml(title)}</h2></div><div style="border:1px solid #e5e7eb;border-top:none;padding:20px;border-radius:0 0 8px 8px;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:8px 0;color:#6b7280;">Metric</td><td style="padding:8px 0;">${escapeHtml(alert.metricName ?? "N/A")}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Severity</td><td style="padding:8px 0;">${escapeHtml(alert.severity ?? "info")}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Value</td><td style="padding:8px 0;">${escapeHtml(alert.actualValue ?? "N/A")}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Threshold</td><td style="padding:8px 0;">${escapeHtml(alert.threshold ?? "N/A")}</td></tr></table><p style="color:#9ca3af;font-size:12px;margin-top:16px;">Theoria • ${new Date().toISOString()}</p></div></div>`;
 }
 
 function buildSlackPipelinePayload(pipeline: Record<string, unknown>) {
@@ -334,8 +356,13 @@ async function sendEmail(config: Record<string, unknown>, subject: string, html:
   if (!nodemailer) {
     throw new Error("nodemailer is not installed — run: npm install nodemailer");
   }
+  const smtpHost = String(config.smtpHost ?? "").trim();
+  if (!smtpHost) throw new Error("SMTP host is required");
+  // SSRF guard: refuse to relay through internal mail hosts unless the
+  // operator has explicitly opted in via THEORIA_ALLOW_INTERNAL_TARGETS.
+  assertAllowedHost(smtpHost);
   const transporter = nodemailer.createTransport({
-    host: config.smtpHost as string,
+    host: smtpHost,
     port: Number(config.smtpPort) || 587,
     secure: Number(config.smtpPort) === 465,
     auth: config.smtpUser ? { user: config.smtpUser as string, pass: config.smtpPass as string } : undefined,

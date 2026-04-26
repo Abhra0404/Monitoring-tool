@@ -56,11 +56,11 @@ func (d *dockerClient) get(path string, out interface{}) error {
 }
 
 type dockerContainer struct {
-	ID    string   `json:"Id"`
-	Names []string `json:"Names"`
-	Image string   `json:"Image"`
-	State string   `json:"State"`
-	Status string  `json:"Status"`
+	ID     string   `json:"Id"`
+	Names  []string `json:"Names"`
+	Image  string   `json:"Image"`
+	State  string   `json:"State"`
+	Status string   `json:"Status"`
 }
 
 type dockerStats struct {

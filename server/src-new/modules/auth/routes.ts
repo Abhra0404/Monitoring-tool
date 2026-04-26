@@ -20,6 +20,11 @@ import type { SystemUser } from "../../shared/types.js";
 
 const BCRYPT_COST = 12;
 
+// Pre-computed real bcrypt hash of an arbitrary throw-away password. Used
+// as the dummy compare target for missing-user login attempts so the
+// timing characteristic matches the hot path. Computed at module load.
+const BCRYPT_DUMMY_HASH = bcrypt.hashSync("theoria-dummy-password", BCRYPT_COST);
+
 // Serialise concurrent POST /api/auth/register on first boot so two races
 // can't both observe `countNonSystem === 0` and both get admin.
 let registrationChain: Promise<unknown> = Promise.resolve();
@@ -125,13 +130,13 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const user = app.store.Users.findByEmail(email);
-      // Always run bcrypt to avoid user-enumeration timing leaks.
+      // Always run bcrypt against a real hash to defeat user-enumeration
+      // timing leaks. Using a malformed/short hash makes bcrypt return
+      // immediately, which is itself a timing oracle (round-2 audit #10).
       const ok =
         user && !user.isSystem
           ? await bcrypt.compare(password, user.password || "")
-          : await bcrypt
-              .compare(password, "$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvali")
-              .then(() => false);
+          : await bcrypt.compare(password, BCRYPT_DUMMY_HASH).then(() => false);
       if (!user || user.isSystem || !ok) {
         const outcome = await app.lockout.recordFailure(email, ip);
         app.store.AuditLog.record({
@@ -186,7 +191,10 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/auth/logout — revoke one refresh token
   app.post(
     "/logout",
-    { schema: { body: refreshSchema } },
+    {
+      schema: { body: refreshSchema },
+      config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
+    },
     async (req: FastifyRequest) => {
       const { refreshToken } = req.body as { refreshToken: string };
       app.store.RefreshTokens.revoke(hashRefreshToken(refreshToken));
@@ -285,11 +293,26 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
         if (!user) return reply.status(404).send({ error: "User not found" });
 
         const body = (req.body ?? {}) as { baseUrl?: string; serverId?: string };
-        const baseUrl =
-          (typeof body.baseUrl === "string" && body.baseUrl.trim()) ||
-          (req.headers["x-forwarded-proto"] && req.headers.host
-            ? `${req.headers["x-forwarded-proto"]}://${req.headers.host}`
-            : `${req.protocol}://${req.headers.host ?? "localhost:4000"}`);
+        // Onboarding tokens are signed with the server's JWT_SECRET and
+        // carry a `url` claim that the agent CLI POSTs back to with the
+        // user's apiKey. We MUST NOT honour client-supplied Host /
+        // X-Forwarded-* values here, otherwise an attacker who tricks an
+        // admin into hitting a malicious /api/auth/onboarding-token can
+        // exfiltrate that admin's apiKey on first redemption (round-2
+        // audit #9). When PUBLIC_BASE_URL is not configured we fall back
+        // to the request's own (unforwarded) protocol+host — only safe
+        // because that path requires the attacker to already control the
+        // socket.
+        const configuredBase = (process.env.PUBLIC_BASE_URL || "").trim();
+        let baseUrl: string;
+        if (configuredBase) {
+          if (typeof body.baseUrl === "string" && body.baseUrl.trim() && body.baseUrl.trim() !== configuredBase) {
+            return reply.status(400).send({ error: "baseUrl must match PUBLIC_BASE_URL" });
+          }
+          baseUrl = configuredBase;
+        } else {
+          baseUrl = `${req.protocol}://${req.hostname}`;
+        }
 
         const nonce = (await import("crypto")).randomBytes(16).toString("base64url");
         const payload = {

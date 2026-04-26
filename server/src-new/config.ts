@@ -19,6 +19,10 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional(),
 
   // Authentication secrets
+  //
+  // In development we use a stable default so contributors don't need
+  // to set env vars. In production we *refuse* to fall back to it —
+  // a leaked default secret is equivalent to no auth at all.
   JWT_SECRET: z.string().min(16).default("theoria-dev-secret-change-me-please"),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
@@ -62,6 +66,8 @@ const envSchema = z.object({
 
 export type Config = z.infer<typeof envSchema>;
 
+const DEV_JWT_SECRET = "theoria-dev-secret-change-me-please";
+
 let _config: Config | null = null;
 
 export function loadConfig(): Config {
@@ -71,6 +77,13 @@ export function loadConfig(): Config {
     // eslint-disable-next-line no-console
     console.error("Invalid environment config:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid server environment configuration");
+  }
+  // Refuse to boot in production with the bundled dev secret. A leaked
+  // default JWT secret is equivalent to no authentication.
+  if (parsed.data.NODE_ENV === "production" && parsed.data.JWT_SECRET === DEV_JWT_SECRET) {
+    throw new Error(
+      "JWT_SECRET must be set to a strong, unique value in production. Refusing to boot with the development default.",
+    );
   }
   _config = parsed.data;
   return _config;

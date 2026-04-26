@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   NavLink,
   Route,
   Routes,
   useLocation,
-  useNavigate,
 } from "react-router-dom";
 import {
   ArrowLeft,
@@ -1500,12 +1499,9 @@ const ROUTES = [
 
 export default function Docs() {
   const [open, setOpen] = useState(false);
-  const { pathname } = useLocation();
-
-  // Close mobile menu when route changes.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  // Note: the mobile drawer closes itself via Sidebar's `onNavigate`
+  // callback when a link is clicked, so no route-change effect is
+  // needed here.
 
   return (
     <div className="min-h-screen bg-bg text-fg">

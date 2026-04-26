@@ -8,23 +8,23 @@ import (
 
 // Metrics is the payload sent to the Theoria server.
 type Metrics struct {
-	ServerID  string      `json:"serverId"`
-	CPU       float64     `json:"cpu"`
-	TotalMem  uint64      `json:"totalMem"`
-	FreeMem   uint64      `json:"freeMem"`
-	Uptime    float64     `json:"uptime"`
-	LoadAvg1  float64     `json:"loadAvg1"`
-	LoadAvg5  float64     `json:"loadAvg5"`
-	LoadAvg15 float64     `json:"loadAvg15"`
-	DiskTotal uint64      `json:"diskTotal"`
-	DiskFree  uint64      `json:"diskFree"`
-	NetworkRx float64     `json:"networkRx"`
-	NetworkTx float64     `json:"networkTx"`
-	CPUCount  int         `json:"cpuCount"`
-	Platform  string      `json:"platform"`
-	Arch      string      `json:"arch"`
-	Hostname  string      `json:"hostname"`
-	Timestamp int64       `json:"timestamp"`
+	ServerID   string      `json:"serverId"`
+	CPU        float64     `json:"cpu"`
+	TotalMem   uint64      `json:"totalMem"`
+	FreeMem    uint64      `json:"freeMem"`
+	Uptime     float64     `json:"uptime"`
+	LoadAvg1   float64     `json:"loadAvg1"`
+	LoadAvg5   float64     `json:"loadAvg5"`
+	LoadAvg15  float64     `json:"loadAvg15"`
+	DiskTotal  uint64      `json:"diskTotal"`
+	DiskFree   uint64      `json:"diskFree"`
+	NetworkRx  float64     `json:"networkRx"`
+	NetworkTx  float64     `json:"networkTx"`
+	CPUCount   int         `json:"cpuCount"`
+	Platform   string      `json:"platform"`
+	Arch       string      `json:"arch"`
+	Hostname   string      `json:"hostname"`
+	Timestamp  int64       `json:"timestamp"`
 	Containers []Container `json:"containers,omitempty"`
 }
 

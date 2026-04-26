@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { schedulePingCheck, unschedulePingCheck } from "./runner.js";
+import { assertAllowedHost, InvalidCheckTargetError } from "../../shared/check-targets.js";
 
 const createSchema = {
   body: {
@@ -29,6 +30,12 @@ export default async function pingChecksRoutes(app: FastifyInstance): Promise<vo
 
   app.post("/", { schema: createSchema }, async (req: FastifyRequest, reply: FastifyReply) => {
     const body = req.body as { name: string; host: string; interval?: number };
+    try {
+      assertAllowedHost(body.host);
+    } catch (err) {
+      const msg = err instanceof InvalidCheckTargetError ? err.message : "Invalid host";
+      return reply.status(400).send({ error: msg });
+    }
     const check = app.store.PingChecks.create({
       userId: req.user._id,
       name: body.name.trim(),

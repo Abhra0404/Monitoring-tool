@@ -186,7 +186,10 @@ function makeRequest(urlStr: string): Promise<{ statusCode: number; responseTime
 
     const options = {
       timeout: REQUEST_TIMEOUT,
-      rejectUnauthorized: false,
+      // Verify TLS certs by default. To monitor a service with a
+      // self-signed/internal cert, set THEORIA_ALLOW_INSECURE_TLS=true
+      // — used sparingly; this disables MITM defenses.
+      rejectUnauthorized: process.env.THEORIA_ALLOW_INSECURE_TLS !== "true",
       headers: { "User-Agent": "Theoria/1.0" },
     };
 

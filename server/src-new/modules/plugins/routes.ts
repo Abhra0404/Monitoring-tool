@@ -65,6 +65,7 @@ const pluginsRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
 
   // POST /api/plugins/install  — npm-install a package into ~/.theoria/plugins
   app.post<{ Body: { package: string } }>("/install", {
+    preHandler: app.requireAdmin,
     schema: {
       body: {
         type: "object",
@@ -78,7 +79,11 @@ const pluginsRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
     const root = getPluginsRoot();
     const pkg = req.body.package;
     try {
-      await execFileAsync("npm", ["install", pkg, "--no-audit", "--no-fund", "--silent"], {
+      // --ignore-scripts: refuse to run the package's preinstall/postinstall
+      // hooks. Theoria plugins are pure JS modules with a manifest; lifecycle
+      // hooks are not needed and would otherwise grant arbitrary RCE to anyone
+      // who can publish/compromise an npm package.
+      await execFileAsync("npm", ["install", pkg, "--ignore-scripts", "--no-audit", "--no-fund", "--silent"], {
         cwd: root.rootDir,
         timeout: 120_000,
         env: { ...process.env, NPM_CONFIG_FUND: "false", NPM_CONFIG_UPDATE_NOTIFIER: "false" },
@@ -103,7 +108,7 @@ const pluginsRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
   });
 
   // DELETE /api/plugins/:name  — npm-remove + drop instances
-  app.delete<{ Params: { name: string } }>("/:name", async (req, reply) => {
+  app.delete<{ Params: { name: string } }>("/:name", { preHandler: app.requireAdmin }, async (req, reply) => {
     const root = getPluginsRoot();
     const name = req.params.name;
     const remaining = root.instances.filter((i) => i.name !== name);

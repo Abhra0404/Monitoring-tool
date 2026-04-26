@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GitHubIcon, ThetaMark } from "../lib/ui.jsx";
@@ -27,7 +27,6 @@ const DESKTOP_LINKS = [
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const hasAnimated = useRef(false);
 
   // Spec §3 — passive listener, initial sample on mount.
   useEffect(() => {
@@ -37,13 +36,10 @@ export default function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Spec §6 — entrance animation runs once. Framer Motion in place of GSAP
-  // (the spec explicitly permits this swap). Guarded against replay.
-  useEffect(() => {
-    hasAnimated.current = true;
-  }, []);
-
-  const entranceInitial = hasAnimated.current ? false : { opacity: 0, y: -12 };
+  // Spec §6 — entrance animation. Framer Motion only animates initial→
+  // animate once at mount because the prop values are constant; no
+  // first-render guard is required (Framer doesn't replay on re-render).
+  const entranceInitial = { opacity: 0, y: -12 };
   const entranceAnimate = { opacity: 1, y: 0 };
 
   return (

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { scheduleTcpCheck, unscheduleTcpCheck } from "./runner.js";
+import { assertAllowedHost, InvalidCheckTargetError } from "../../shared/check-targets.js";
 
 const createSchema = {
   body: {
@@ -33,6 +34,12 @@ export default async function tcpChecksRoutes(app: FastifyInstance): Promise<voi
 
   app.post("/", { schema: createSchema }, async (req: FastifyRequest, reply: FastifyReply) => {
     const body = req.body as { name: string; host: string; port: number; interval?: number; timeoutMs?: number };
+    try {
+      assertAllowedHost(body.host);
+    } catch (err) {
+      const msg = err instanceof InvalidCheckTargetError ? err.message : "Invalid host";
+      return reply.status(400).send({ error: msg });
+    }
     const check = app.store.TcpChecks.create({
       userId: req.user._id,
       name: body.name.trim(),

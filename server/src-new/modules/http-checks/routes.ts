@@ -2,6 +2,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { scheduleCheck, unscheduleCheck } from "./runner.js";
+import { assertAllowedHttpUrl, InvalidCheckTargetError } from "../../shared/check-targets.js";
 
 export default async function httpChecksRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", app.authenticate);
@@ -28,9 +29,10 @@ export default async function httpChecksRoutes(app: FastifyInstance): Promise<vo
       return reply.status(400).send({ error: "name and url are required" });
     }
     try {
-      new URL(url as string);
-    } catch {
-      return reply.status(400).send({ error: "Invalid URL format" });
+      assertAllowedHttpUrl(url as string);
+    } catch (err) {
+      const msg = err instanceof InvalidCheckTargetError ? err.message : "Invalid URL";
+      return reply.status(400).send({ error: msg });
     }
     const check = app.store.HttpChecks.create({
       userId: req.user._id,

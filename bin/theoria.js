@@ -9,7 +9,7 @@
  *   npx theoria-cli --reset      → Re-run first-time setup
  */
 
-const { spawn, execSync } = require("child_process");
+const { spawn, spawnSync, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
@@ -442,16 +442,23 @@ Plugins are installed into: ${c.dim}${pluginsDir}${c.reset}
       process.exit(1);
     }
     console.log(`${c.cyan}Installing ${pkg} into ${pluginsDir}…${c.reset}`);
-    try {
-      execSync(`npm install ${JSON.stringify(pkg)} --no-audit --no-fund --silent`, {
-        cwd: pluginsDir,
-        stdio: "inherit",
-      });
-      console.log(`${c.green}✓ Installed${c.reset}`);
-    } catch (err) {
-      console.error(`${c.red}✗ Install failed: ${err.message}${c.reset}`);
+    // Validate package spec to refuse shell metacharacters even though we use
+    // shell: false. npm itself rejects names with most of these but we
+    // double-check at our boundary.
+    if (!/^[@a-z0-9][a-z0-9._/@-]*$/i.test(pkg)) {
+      console.error(`${c.red}✗ Invalid package name${c.reset}`);
       process.exit(1);
     }
+    const result = spawnSync(
+      "npm",
+      ["install", pkg, "--ignore-scripts", "--no-audit", "--no-fund", "--silent"],
+      { cwd: pluginsDir, stdio: "inherit", shell: false },
+    );
+    if (result.error || result.status !== 0) {
+      console.error(`${c.red}✗ Install failed${c.reset}`);
+      process.exit(1);
+    }
+    console.log(`${c.green}✓ Installed${c.reset}`);
     return;
   }
 
@@ -461,16 +468,20 @@ Plugins are installed into: ${c.dim}${pluginsDir}${c.reset}
       console.error(`${c.red}✗ Missing plugin name${c.reset}`);
       process.exit(1);
     }
-    try {
-      execSync(`npm uninstall ${JSON.stringify(name)} --silent`, {
-        cwd: pluginsDir,
-        stdio: "inherit",
-      });
-      console.log(`${c.green}✓ Removed ${name}${c.reset}`);
-    } catch (err) {
-      console.error(`${c.red}✗ Remove failed: ${err.message}${c.reset}`);
+    if (!/^[@a-z0-9][a-z0-9._/@-]*$/i.test(name)) {
+      console.error(`${c.red}✗ Invalid plugin name${c.reset}`);
       process.exit(1);
     }
+    const removeResult = spawnSync(
+      "npm",
+      ["uninstall", name, "--silent"],
+      { cwd: pluginsDir, stdio: "inherit", shell: false },
+    );
+    if (removeResult.error || removeResult.status !== 0) {
+      console.error(`${c.red}✗ Remove failed${c.reset}`);
+      process.exit(1);
+    }
+    console.log(`${c.green}✓ Removed ${name}${c.reset}`);
     return;
   }
 

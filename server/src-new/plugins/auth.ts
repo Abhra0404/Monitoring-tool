@@ -125,6 +125,16 @@ export default fp(
       req.user = toAuthContext(user, "jwt");
     });
 
+    // Admin-only guard. Use AFTER `authenticate` in a route's preHandler chain.
+    app.decorate("requireAdmin", async function (
+      req: FastifyRequest,
+      reply: FastifyReply,
+    ) {
+      if (!req.user || req.user.role !== "admin") {
+        return reply.status(403).send({ error: "Admin role required" });
+      }
+    });
+
     // API-key based agent authentication.
     app.decorate("authenticateApiKey", async function (
       req: FastifyRequest,
@@ -153,6 +163,7 @@ export default fp(
 declare module "fastify" {
   interface FastifyInstance {
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireAdmin: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     authenticateApiKey: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     signTokens: (user: SystemUser) => Promise<TokenPair>;
   }
