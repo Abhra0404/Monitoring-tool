@@ -1,10 +1,11 @@
 /**
- * In-memory data store — preserved from the original store.js.
- * Used when no DATABASE_URL is configured (zero-config mode).
+ * In-memory data store — the only persistence layer.
  *
- * Metrics stored in a ring buffer per user+host, capped at MAX_METRICS_PER_SERVER.
- * Old metrics auto-expire based on METRIC_TTL_MS (7 days).
- * Persistent data (users, servers, alert rules, etc.) saved to ~/.theoria/store.json.
+ * Metrics live in a ring buffer per user+host (capped at
+ * MAX_METRICS_PER_SERVER, expired after METRIC_TTL_MS = 7 days). Everything
+ * else (users, servers, alert rules, checks, incidents, audit log, …) is
+ * snapshotted to ~/.theoria/store.json with a 5 s debounce. Mode 0600 since
+ * the snapshot contains bcrypt hashes and API keys.
  */
 
 import fs from "fs";
@@ -38,7 +39,6 @@ import type {
   IncidentStatus,
   IncidentSeverity,
 } from "../shared/types.js";
-import { publish } from "./bus.js";
 
 // ── Config ──
 const METRIC_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -62,22 +62,12 @@ function timingSafeStrEqual(a: string, b: string): boolean {
 /**
  * JSON snapshot gate.
  *
- * The snapshot is the only source of truth in zero-config mode. As soon as
- * `DATABASE_URL` is set, Postgres owns state and the snapshot becomes
- * redundant (and a minor information-leak surface since it contains bcrypt
- * hashes + API keys on the host FS).
- *
- * Rules:
- *   - `SKIP_JSON_SNAPSHOT=1` → never read or write the file.
- *   - `DATABASE_URL` set AND `SKIP_JSON_SNAPSHOT` unset → skip writes, but
- *     still read the file once on boot so operators who enabled Postgres
- *     mid-flight don't silently drop users on the first restart.
- *   - Otherwise (zero-config mode) → read + write as before.
+ * `SKIP_JSON_SNAPSHOT=1` disables both reads and writes — used by the test
+ * suite so a stale ~/.theoria/store.json from a previous run can't leak in.
  */
 const SKIP_JSON_SNAPSHOT =
   process.env.SKIP_JSON_SNAPSHOT === "1" ||
-  process.env.SKIP_JSON_SNAPSHOT === "true" ||
-  !!process.env.DATABASE_URL;
+  process.env.SKIP_JSON_SNAPSHOT === "true";
 
 function genId(): string {
   return crypto.randomBytes(12).toString("hex");
@@ -172,11 +162,10 @@ function persistSync(): void {
 }
 
 function loadFromDisk(): void {
-  // SKIP_JSON_SNAPSHOT gates both reads and writes — tests and DATABASE_URL
-  // mode must start from a clean in-memory state so results don't leak across
-  // runs. Without this guard, a stale ~/.theoria/store.json from a previous
-  // run will silently hydrate tests (e.g. a prior status-page test leaving
-  // `isPublic: true` breaks the "404 when not enabled" assertion).
+  // SKIP_JSON_SNAPSHOT gates both reads and writes — tests must start from
+  // a clean state so results don't leak across runs (e.g. a prior
+  // status-page test leaving `isPublic: true` would break the "404 when
+  // not enabled" assertion).
   if (SKIP_JSON_SNAPSHOT) return;
   try {
     if (fs.existsSync(PERSIST_FILE)) {
@@ -333,7 +322,6 @@ const Users = {
     };
     data.users.push(user);
     schedulePersist();
-    publish({ kind: "users", op: "upsert", data: user });
     return user;
   },
   updatePassword(id: string, passwordHash: string): SystemUser | null {
@@ -342,7 +330,6 @@ const Users = {
     user.password = passwordHash;
     user.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "users", op: "upsert", data: user });
     return user;
   },
   updateApiKey(id: string): SystemUser | null {
@@ -351,7 +338,6 @@ const Users = {
     user.apiKey = crypto.randomUUID();
     user.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "users", op: "upsert", data: user });
     return user;
   },
   replaceAll(users: SystemUser[]): void {
@@ -391,7 +377,6 @@ const Servers = {
       data.servers.push(server);
     }
     schedulePersist();
-    publish({ kind: "servers", op: "upsert", data: server });
     return server;
   },
   update(userId: string, serverId: string, updates: Partial<ServerRecord>): ServerRecord | null {
@@ -399,7 +384,6 @@ const Servers = {
     if (!server) return null;
     Object.assign(server, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "servers", op: "upsert", data: server });
     return server;
   },
   delete(userId: string, serverId: string): ServerRecord | null {
@@ -407,7 +391,6 @@ const Servers = {
     if (idx === -1) return null;
     const removed = data.servers.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "servers", op: "delete", data: removed, scope: { userId, serverId } });
     return removed;
   },
   replaceAll(servers: ServerRecord[]): void {
@@ -432,7 +415,6 @@ const Metrics = {
       records.push(record);
     }
     if (records.length > 0) {
-      publish({ kind: "metrics", op: "batchInsert", data: records });
     }
   },
   find(userId: string, host: string, startTime: Date | number): MetricRecord[] {
@@ -445,7 +427,6 @@ const Metrics = {
     data.metrics = data.metrics.filter(
       (m) => !(m.userId === userId && m.labels?.host === host),
     );
-    publish({ kind: "metrics", op: "delete", data: null, scope: { userId, host } });
   },
 };
 
@@ -484,7 +465,6 @@ const AlertRules = {
       data.alertRules.push(rule);
     }
     schedulePersist();
-    publish({ kind: "alertRules", op: "upsert", data: rule });
     return rule;
   },
   delete(id: string, userId: string): AlertRule | null {
@@ -492,7 +472,6 @@ const AlertRules = {
     if (idx === -1) return null;
     const removed = data.alertRules.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "alertRules", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): AlertRule | null {
@@ -501,7 +480,6 @@ const AlertRules = {
     rule.isActive = !rule.isActive;
     rule.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "alertRules", op: "upsert", data: rule });
     return rule;
   },
   replaceAll(rules: AlertRule[]): void {
@@ -538,7 +516,6 @@ const AlertHistory = {
     } as AlertHistoryEntry;
     data.alertHistory.push(entry);
     schedulePersist();
-    publish({ kind: "alertHistory", op: "upsert", data: entry });
     return entry;
   },
   resolve(ruleId: string, userId: string): AlertHistoryEntry | null {
@@ -549,7 +526,6 @@ const AlertHistory = {
     entry.status = "resolved";
     entry.resolvedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "alertHistory", op: "upsert", data: entry });
     return entry;
   },
   resolveByRuleId(ruleId: string): number {
@@ -566,7 +542,6 @@ const AlertHistory = {
     if (count > 0) {
       schedulePersist();
       for (const entry of resolved) {
-        publish({ kind: "alertHistory", op: "upsert", data: entry });
       }
     }
     return count;
@@ -606,7 +581,6 @@ const HttpChecks = {
     } as HttpCheck & { results: HttpCheckResult[] };
     data.httpChecks.push(check);
     schedulePersist();
-    publish({ kind: "httpChecks", op: "upsert", data: check });
     return check;
   },
   update(id: string, updates: Partial<HttpCheck & { results: HttpCheckResult[] }>): (HttpCheck & { results: HttpCheckResult[] }) | null {
@@ -615,15 +589,9 @@ const HttpChecks = {
     const prevResultsLen = check.results?.length ?? 0;
     Object.assign(check, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "httpChecks", op: "upsert", data: check });
     // Emit newly appended results as time-series rows.
     const newResults = (updates.results || []).slice(prevResultsLen);
     if (newResults.length > 0) {
-      publish({
-        kind: "httpCheckResults",
-        op: "batchInsert",
-        data: newResults.map((r) => ({ ...r, checkId: check._id, userId: check.userId })),
-      });
     }
     return check;
   },
@@ -632,7 +600,6 @@ const HttpChecks = {
     if (idx === -1) return null;
     const removed = data.httpChecks.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "httpChecks", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): (HttpCheck & { results: HttpCheckResult[] }) | null {
@@ -641,7 +608,6 @@ const HttpChecks = {
     check.isActive = !check.isActive;
     check.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "httpChecks", op: "upsert", data: check });
     return check;
   },
   replaceAll(checks: (HttpCheck & { results: HttpCheckResult[] })[]): void {
@@ -693,7 +659,6 @@ const Pipelines = {
       data.pipelines.push(pipeline);
     }
     schedulePersist();
-    publish({ kind: "pipelines", op: "upsert", data: pipeline });
     return pipeline;
   },
   delete(runId: string, userId: string): PipelineRecord | null {
@@ -701,7 +666,6 @@ const Pipelines = {
     if (idx === -1) return null;
     const removed = data.pipelines.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "pipelines", op: "delete", data: removed });
     return removed;
   },
   getStats(userId: string) {
@@ -743,7 +707,6 @@ const NotificationChannels = {
     } as NotificationChannel;
     data.notificationChannels.push(channel);
     schedulePersist();
-    publish({ kind: "notificationChannels", op: "upsert", data: channel });
     return channel;
   },
   update(id: string, updates: Partial<NotificationChannel>): NotificationChannel | null {
@@ -751,7 +714,6 @@ const NotificationChannels = {
     if (!channel) return null;
     Object.assign(channel, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "notificationChannels", op: "upsert", data: channel });
     return channel;
   },
   delete(id: string, userId: string): NotificationChannel | null {
@@ -759,7 +721,6 @@ const NotificationChannels = {
     if (idx === -1) return null;
     const removed = data.notificationChannels.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "notificationChannels", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): NotificationChannel | null {
@@ -768,7 +729,6 @@ const NotificationChannels = {
     channel.isActive = !channel.isActive;
     channel.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "notificationChannels", op: "upsert", data: channel });
     return channel;
   },
   replaceAll(channels: NotificationChannel[]): void {
@@ -806,7 +766,6 @@ const DockerContainers = {
       }
     }
     if (updated.length > 0) {
-      publish({ kind: "dockerContainers", op: "batchInsert", data: updated });
     }
   },
 };
@@ -840,7 +799,6 @@ const StatusPageConfigStore = {
       Object.assign(data.statusPageConfig, updates, { updatedAt: new Date().toISOString() });
     }
     schedulePersist();
-    publish({ kind: "statusPageConfig", op: "upsert", data: data.statusPageConfig });
     return data.statusPageConfig;
   },
   replaceAll(config: StatusPageConfig | null): void {
@@ -862,7 +820,6 @@ const RefreshTokens = {
     };
     data.refreshTokens.push(record);
     schedulePersist();
-    publish({ kind: "refreshTokens", op: "upsert", data: record });
     return record;
   },
   findValidByHash(tokenHash: string): RefreshTokenRecord | null {
@@ -878,7 +835,6 @@ const RefreshTokens = {
     if (!record || record.revokedAt) return null;
     record.revokedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "refreshTokens", op: "upsert", data: record });
     return record;
   },
   revokeAllForUser(userId: string): number {
@@ -888,7 +844,6 @@ const RefreshTokens = {
       if (r.userId === userId && !r.revokedAt) {
         r.revokedAt = now;
         count++;
-        publish({ kind: "refreshTokens", op: "upsert", data: r });
       }
     }
     if (count > 0) schedulePersist();
@@ -949,7 +904,6 @@ const TcpChecks = {
     };
     data.tcpChecks.push(check);
     schedulePersist();
-    publish({ kind: "tcpChecks", op: "upsert", data: check });
     return check;
   },
   update(id: string, updates: Partial<TcpCheck & { results: TcpCheckResult[] }>): (TcpCheck & { results: TcpCheckResult[] }) | null {
@@ -957,7 +911,6 @@ const TcpChecks = {
     if (!check) return null;
     Object.assign(check, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "tcpChecks", op: "upsert", data: check });
     return check;
   },
   delete(id: string, userId: string): TcpCheck | null {
@@ -965,7 +918,6 @@ const TcpChecks = {
     if (idx === -1) return null;
     const removed = data.tcpChecks.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "tcpChecks", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): (TcpCheck & { results: TcpCheckResult[] }) | null {
@@ -974,7 +926,6 @@ const TcpChecks = {
     check.isActive = !check.isActive;
     check.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "tcpChecks", op: "upsert", data: check });
     return check;
   },
   replaceAll(checks: (TcpCheck & { results: TcpCheckResult[] })[]): void {
@@ -1016,7 +967,6 @@ const PingChecks = {
     };
     data.pingChecks.push(check);
     schedulePersist();
-    publish({ kind: "pingChecks", op: "upsert", data: check });
     return check;
   },
   update(id: string, updates: Partial<PingCheck & { results: PingCheckResult[] }>): (PingCheck & { results: PingCheckResult[] }) | null {
@@ -1024,7 +974,6 @@ const PingChecks = {
     if (!check) return null;
     Object.assign(check, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "pingChecks", op: "upsert", data: check });
     return check;
   },
   delete(id: string, userId: string): PingCheck | null {
@@ -1032,7 +981,6 @@ const PingChecks = {
     if (idx === -1) return null;
     const removed = data.pingChecks.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "pingChecks", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): (PingCheck & { results: PingCheckResult[] }) | null {
@@ -1041,7 +989,6 @@ const PingChecks = {
     check.isActive = !check.isActive;
     check.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "pingChecks", op: "upsert", data: check });
     return check;
   },
   replaceAll(checks: (PingCheck & { results: PingCheckResult[] })[]): void {
@@ -1085,7 +1032,6 @@ const DnsChecks = {
     };
     data.dnsChecks.push(check);
     schedulePersist();
-    publish({ kind: "dnsChecks", op: "upsert", data: check });
     return check;
   },
   update(id: string, updates: Partial<DnsCheck & { results: DnsCheckResult[] }>): (DnsCheck & { results: DnsCheckResult[] }) | null {
@@ -1093,7 +1039,6 @@ const DnsChecks = {
     if (!check) return null;
     Object.assign(check, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "dnsChecks", op: "upsert", data: check });
     return check;
   },
   delete(id: string, userId: string): DnsCheck | null {
@@ -1101,7 +1046,6 @@ const DnsChecks = {
     if (idx === -1) return null;
     const removed = data.dnsChecks.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "dnsChecks", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): (DnsCheck & { results: DnsCheckResult[] }) | null {
@@ -1110,7 +1054,6 @@ const DnsChecks = {
     check.isActive = !check.isActive;
     check.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "dnsChecks", op: "upsert", data: check });
     return check;
   },
   replaceAll(checks: (DnsCheck & { results: DnsCheckResult[] })[]): void {
@@ -1151,7 +1094,6 @@ const HeartbeatMonitors = {
     };
     data.heartbeatMonitors.push(monitor);
     schedulePersist();
-    publish({ kind: "heartbeatMonitors", op: "upsert", data: monitor });
     return monitor;
   },
   update(id: string, updates: Partial<HeartbeatMonitor>): HeartbeatMonitor | null {
@@ -1159,7 +1101,6 @@ const HeartbeatMonitors = {
     if (!monitor) return null;
     Object.assign(monitor, updates, { updatedAt: new Date().toISOString() });
     schedulePersist();
-    publish({ kind: "heartbeatMonitors", op: "upsert", data: monitor });
     return monitor;
   },
   delete(id: string, userId: string): HeartbeatMonitor | null {
@@ -1167,7 +1108,6 @@ const HeartbeatMonitors = {
     if (idx === -1) return null;
     const removed = data.heartbeatMonitors.splice(idx, 1)[0];
     schedulePersist();
-    publish({ kind: "heartbeatMonitors", op: "delete", data: removed });
     return removed;
   },
   toggleActive(id: string, userId: string): HeartbeatMonitor | null {
@@ -1176,7 +1116,6 @@ const HeartbeatMonitors = {
     monitor.isActive = !monitor.isActive;
     monitor.updatedAt = new Date().toISOString();
     schedulePersist();
-    publish({ kind: "heartbeatMonitors", op: "upsert", data: monitor });
     return monitor;
   },
   replaceAll(monitors: HeartbeatMonitor[]): void {
@@ -1208,7 +1147,6 @@ const Events = {
     if (data.events.length > EVENT_RING_CAP) {
       data.events.splice(0, data.events.length - EVENT_RING_CAP);
     }
-    publish({ kind: "events", op: "batchInsert", data: [rec] });
     return rec;
   },
   /**
@@ -1294,7 +1232,6 @@ const Incidents = {
     };
     data.incidents.push(incident);
     schedulePersist();
-    publish({ kind: "incidents", op: "upsert", data: incident });
     return incident;
   },
   update(id: string, userId: string, updates: Partial<IncidentRecord>): IncidentRecord | null {
@@ -1305,7 +1242,6 @@ const Incidents = {
       incident.resolvedAt = new Date().toISOString();
     }
     schedulePersist();
-    publish({ kind: "incidents", op: "upsert", data: incident });
     return incident;
   },
   delete(id: string, userId: string): IncidentRecord | null {
@@ -1315,7 +1251,6 @@ const Incidents = {
     // Cascade updates removal
     data.incidentUpdates = data.incidentUpdates.filter((u) => u.incidentId !== id);
     schedulePersist();
-    publish({ kind: "incidents", op: "delete", data: removed });
     return removed;
   },
   replaceAll(incidents: IncidentRecord[]): void {
@@ -1339,7 +1274,6 @@ const IncidentUpdates = {
     };
     data.incidentUpdates.push(record);
     schedulePersist();
-    publish({ kind: "incidentUpdates", op: "upsert", data: record });
     return record;
   },
   replaceAll(updates: IncidentUpdateRecord[]): void {

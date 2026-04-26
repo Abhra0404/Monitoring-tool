@@ -13,14 +13,6 @@ export default defineConfig({
         "src-new/**/*.test.ts",
         "src-new/**/*.d.ts",
         "src-new/index.ts",
-        // DB code paths exercised only in DATABASE_URL mode (integration tests
-        // run against the in-memory store). Excluded until a Testcontainers-
-        // based DB test suite lands in Phase 6.
-        "src-new/db/migrate.ts",
-        "src-new/db/connection.ts",
-        "src-new/db/hydrate.ts",
-        "src-new/db/persist.ts",
-        "src-new/db/migrations/**",
         // External integrations — require mocked outbound HTTP which will be
         // covered by provider-level tests when the notifications refactor in
         // Phase 2 lands.

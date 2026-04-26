@@ -1,19 +1,4 @@
 services:
-  postgres:
-    image: timescale/timescaledb-ha:pg16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-theoria}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-theoria}
-      POSTGRES_DB: ${POSTGRES_DB:-theoria}
-    volumes:
-      - postgres-data:/home/postgres/pgdata/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-theoria} -d ${POSTGRES_DB:-theoria}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -30,8 +15,6 @@ services:
     build: .
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     ports:
@@ -40,7 +23,6 @@ services:
       NODE_ENV: production
       PORT: 4000
       HOST: 0.0.0.0
-      DATABASE_URL: postgres://${POSTGRES_USER:-theoria}:${POSTGRES_PASSWORD:-theoria}@postgres:5432/${POSTGRES_DB:-theoria}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-changeme_generate_a_real_secret_at_least_16_chars}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
@@ -51,6 +33,5 @@ services:
       - theoria-data:/root/.theoria
 
 volumes:
-  postgres-data:
   redis-data:
   theoria-data:

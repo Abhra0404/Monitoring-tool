@@ -20,7 +20,6 @@ import { createRequire } from "module";
 import { loadConfig, Config } from "./config.js";
 
 import storePlugin from "./plugins/store.js";
-import databasePlugin from "./plugins/database.js";
 import redisPlugin from "./plugins/redis.js";
 import socketioPlugin from "./plugins/socketio.js";
 import authPlugin from "./plugins/auth.js";
@@ -193,7 +192,6 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     credentials: true,
   });
   await app.register(storePlugin);
-  await app.register(databasePlugin);
   await app.register(redisPlugin);
 
   // Rate-limit — uses Redis when available so it is accurate across replicas.
@@ -286,7 +284,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     status: "healthy",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    storage: app.db ? "postgres+memory" : "in-memory",
+    storage: "in-memory",
   }));
   app.get("/health/live", async () => ({
     status: "ok",
@@ -297,15 +295,6 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
     const checks: Record<string, { ok: boolean; detail?: string }> = {};
     let allOk = true;
 
-    if (app.db) {
-      try {
-        await app.db.execute("select 1");
-        checks.database = { ok: true };
-      } catch (err) {
-        checks.database = { ok: false, detail: (err as Error).message };
-        allOk = false;
-      }
-    }
     if (app.redis) {
       try {
         const pong = await app.redis.client.ping();

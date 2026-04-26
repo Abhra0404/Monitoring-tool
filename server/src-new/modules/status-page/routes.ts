@@ -1,7 +1,6 @@
 // ── Status Page routes module ──
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { sql } from "drizzle-orm";
 import type { HttpCheck, HttpCheckResult, IncidentRecord, IncidentUpdateRecord } from "../../shared/types.js";
 
 /**
@@ -187,56 +186,18 @@ export default async function statusPageRoutes(app: FastifyInstance): Promise<vo
     const ownerId = config.userId;
     const checks = app.store.HttpChecks.find(ownerId).filter((c) => c.isActive);
 
-    // Prefer Postgres for accurate long-range history when available.
-    const pg = app.db;
+    // Compute uptime from the in-memory result ring (last ~100 samples per
+    // check, capped at 30 days).
     const out: Array<{ checkId: string; name: string; url: string; days: UptimeDay[] }> = [];
-
-    if (pg) {
-      for (const c of checks) {
-        const result = await pg.execute<{ day: string; up_count: number; total: number }>(
-          sql`
-            SELECT
-              to_char(date_trunc('day', "time" AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
-              SUM((status = 'up')::int)::int AS up_count,
-              COUNT(*)::int AS total
-            FROM http_check_results
-            WHERE check_id = ${c._id}
-              AND "time" >= NOW() - (${String(days)}::text || ' days')::interval
-            GROUP BY day
-            ORDER BY day ASC
-          `,
-        );
-        const pgRows = (Array.isArray(result) ? result : (result as unknown as { rows?: unknown[] }).rows) ?? [];
-        const byDay = new Map<string, { up: number; total: number }>();
-        for (const r of pgRows as Array<{ day: string; up_count: number; total: number }>) {
-          byDay.set(r.day, { up: Number(r.up_count), total: Number(r.total) });
-        }
-        const filled: UptimeDay[] = [];
-        for (let i = days - 1; i >= 0; i--) {
-          const d = new Date(Date.now() - i * DAY_MS);
-          d.setUTCHours(0, 0, 0, 0);
-          const key = d.toISOString().slice(0, 10);
-          const b = byDay.get(key);
-          filled.push({
-            date: key,
-            uptimePercent: b && b.total > 0 ? Math.round((b.up / b.total) * 1000) / 10 : -1,
-            samples: b?.total ?? 0,
-          });
-        }
-        out.push({ checkId: c._id, name: c.name, url: c.url, days: filled });
-      }
-    } else {
-      // Fallback: compute from the in-memory result ring (last ~100 samples).
-      for (const c of checks) {
-        const full = app.store.HttpChecks.findById(c._id);
-        if (!full) continue;
-        out.push({
-          checkId: c._id,
-          name: c.name,
-          url: c.url,
-          days: computeUptimeDays(full, Math.min(days, 30)),
-        });
-      }
+    for (const c of checks) {
+      const full = app.store.HttpChecks.findById(c._id);
+      if (!full) continue;
+      out.push({
+        checkId: c._id,
+        name: c.name,
+        url: c.url,
+        days: computeUptimeDays(full, Math.min(days, 30)),
+      });
     }
 
     return { days, checks: out };

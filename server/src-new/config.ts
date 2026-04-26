@@ -11,10 +11,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(5000),
   HOST: z.string().default("0.0.0.0"),
 
-  // Storage
-  DATABASE_URL: z.string().optional(),
-  DATABASE_POOL_MAX: z.coerce.number().default(10),
-
   // Cache / pub-sub (Phase 6 — optional)
   REDIS_URL: z.string().optional(),
 
@@ -95,10 +91,6 @@ export function getConfig(): Config {
 
 export function resetConfigForTest(): void {
   _config = null;
-}
-
-export function isDbMode(): boolean {
-  return !!getConfig().DATABASE_URL;
 }
 
 export function isRedisMode(): boolean {
