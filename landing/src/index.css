@@ -1,148 +1,335 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-red-accent: #ef4444;
-  --color-red-glow: #dc2626;
-  --color-red-bright: #f87171;
-  --color-red-muted: rgba(239, 68, 68, 0.12);
+  /* Surfaces — zinc-derived, slightly warm */
+  --color-bg: #08090b;
+  --color-surface: #0c0d10;
+  --color-surface-1: #111316;
+  --color-surface-2: #16191d;
+  --color-stroke: #1d2024;
+  --color-stroke-1: #262a30;
+  --color-stroke-2: #33383f;
 
-  --color-surface: #050505;
-  --color-surface-raised: #0a0a0a;
-  --color-surface-card: #0f0f0f;
-  --color-surface-overlay: #141414;
+  /* Foreground — Tailwind zinc scale for softer-on-the-eye text */
+  --color-fg:   #d4d4d8; /* zinc-200 — primary text (was near-white) */
+  --color-fg-1: #d4d4d8; /* zinc-300 — body text */
+  --color-fg-2: #a1a1aa; /* zinc-400 — secondary / labels */
+  --color-fg-3: #71717a; /* zinc-500 — tertiary / hints */
+  --color-fg-4: #52525b; /* zinc-600 — disabled / dividers in text */
 
-  --color-stroke: #1a1a1a;
-  --color-stroke-light: #252525;
+  /* Brand — emerald = uptime/health */
+  --color-brand: #34d399;
+  --color-brand-bright: #6ee7b7;
+  --color-brand-deep: #059669;
+  --color-brand-soft: rgba(52, 211, 153, 0.10);
+  --color-brand-line: rgba(52, 211, 153, 0.22);
 
-  --color-fg: #fafafa;
-  --color-fg-secondary: #a1a1a1;
-  --color-fg-muted: #525252;
-  --color-fg-dim: #333333;
+  /* Alerts — red used sparingly to mean "incident" */
+  --color-alert: #f43f5e;
+  --color-alert-soft: rgba(244, 63, 94, 0.10);
+
+  /* Accent for charts — violet */
+  --color-data: #a78bfa;
+  --color-data-soft: rgba(167, 139, 250, 0.10);
+
+  --color-warn: #f59e0b;
 }
 
-/* ── Base ─────────────────────────────────────────────── */
+/* ── Reset / base ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 html {
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
-body {
-  background: #000;
+html, body {
+  background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss02", "cv01", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  margin: 0;
+}
+
+/* Clip horizontal overflow without breaking position: sticky on descendants.
+   `overflow-x: hidden` on html/body kills sticky; `clip` is the modern
+   equivalent that doesn't establish a scroll container. */
+body {
+  overflow-x: clip;
 }
 
 ::selection {
-  background: rgba(239, 68, 68, 0.3);
-  color: #fff;
+  background: var(--color-brand-soft);
+  color: var(--color-brand-bright);
 }
 
 /* ── Scrollbar ────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #000; }
-::-webkit-scrollbar-thumb { background: #222; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #444; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-stroke-1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-stroke-2); }
 
-/* ── Hero gradient mesh ───────────────────────────────── */
-.hero-gradient {
+/* ── Type rhythm ──────────────────────────────────────── */
+.heading-display {
+  font-size: clamp(2.5rem, 5.5vw, 4.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+}
+
+.heading-section {
+  font-size: clamp(1.875rem, 3.5vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-fg-2);
+}
+
+/* ── Backgrounds / textures ───────────────────────────── */
+.aurora {
+  position: absolute; inset: -10% -10% auto -10%; height: 70vh; pointer-events: none; z-index: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(239, 68, 68, 0.15), transparent),
-    radial-gradient(ellipse 60% 40% at 20% 60%, rgba(220, 38, 38, 0.06), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(248, 113, 113, 0.04), transparent);
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(52, 211, 153, 0.18), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 20% 30%, rgba(167, 139, 250, 0.10), transparent 65%),
+    radial-gradient(ellipse 40% 40% at 80% 30%, rgba(52, 211, 153, 0.06), transparent 65%);
+  filter: blur(20px) saturate(120%);
 }
 
-/* ── Grid dot pattern ─────────────────────────────────── */
-.dot-grid {
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 32px 32px;
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, black, transparent 75%);
 }
 
-/* ── Glow elements ────────────────────────────────────── */
-.glow-red {
-  box-shadow:
-    0 0 20px rgba(239, 68, 68, 0.15),
-    0 0 60px rgba(239, 68, 68, 0.05);
+.dot-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-.glow-red-strong {
-  box-shadow:
-    0 0 30px rgba(239, 68, 68, 0.2),
-    0 0 80px rgba(239, 68, 68, 0.08),
-    0 0 120px rgba(239, 68, 68, 0.04);
+.noise::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.55'/></svg>");
+  opacity: 0.03;
+  pointer-events: none;
+  mix-blend-mode: overlay;
 }
 
-/* ── Code block styling ───────────────────────────────── */
-.code-block {
-  background: linear-gradient(180deg, #0a0a0a 0%, #080808 100%);
+/* ── Borders & cards ──────────────────────────────────── */
+.hairline {
   border: 1px solid var(--color-stroke);
 }
 
-/* ── Feature card hover ───────────────────────────────── */
-.feature-card {
-  background: linear-gradient(180deg, var(--color-surface-card) 0%, var(--color-surface) 100%);
+.card {
+  background: linear-gradient(180deg, var(--color-surface-1) 0%, var(--color-surface) 100%);
   border: 1px solid var(--color-stroke);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 14px;
+  transition: border-color 240ms ease, transform 240ms ease, box-shadow 240ms ease;
 }
 
-.feature-card:hover {
-  border-color: rgba(239, 68, 68, 0.25);
-  box-shadow: 0 0 40px rgba(239, 68, 68, 0.06);
+.card-interactive:hover {
+  border-color: var(--color-stroke-1);
+  transform: translateY(-1px);
+}
+
+/* Hover-glow card — emerald halo + brand border on hover. */
+.card-glow {
+  position: relative;
+  transition: border-color 280ms ease, transform 280ms ease, box-shadow 280ms ease;
+}
+.card-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(52,211,153,0.55), rgba(52,211,153,0) 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 280ms ease;
+  pointer-events: none;
+}
+.card-glow:hover {
   transform: translateY(-2px);
+  border-color: var(--color-brand-line);
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.18),
+    0 24px 60px -24px rgba(52, 211, 153, 0.30),
+    0 8px 28px -10px rgba(0, 0, 0, 0.55);
+}
+.card-glow:hover::before {
+  opacity: 1;
 }
 
-/* ── Typing cursor ────────────────────────────────────── */
-@keyframes blink-caret {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+/* Glow borders for hero cards */
+.brand-glow {
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.10),
+    0 30px 80px -20px rgba(52, 211, 153, 0.18),
+    0 12px 40px -12px rgba(0, 0, 0, 0.5);
 }
 
-.cursor-blink {
-  animation: blink-caret 1s step-end infinite;
+/* ── Pill / badge ─────────────────────────────────────── */
+.pill {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-stroke-1);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-fg-1);
+  font-size: 0.78rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
 }
 
-/* ── Smooth reveal for chart ──────────────────────────── */
-@keyframes draw-line {
-  from { stroke-dashoffset: 600; }
+.pill-brand {
+  border-color: var(--color-brand-line);
+  background: var(--color-brand-soft);
+  color: var(--color-brand-bright);
+}
+
+/* ── Buttons ──────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 0.6rem 1.05rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  transition: all 200ms ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--color-fg);
+  color: var(--color-bg);
+  border: 1px solid var(--color-fg);
+}
+.btn-primary:hover {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: #052e1a;
+}
+
+.btn-secondary {
+  background: var(--color-surface-1);
+  color: var(--color-fg-1);
+  border: 1px solid var(--color-stroke-1);
+}
+.btn-secondary:hover {
+  border-color: var(--color-stroke-2);
+  color: var(--color-fg);
+}
+
+.btn-ghost {
+  color: var(--color-fg-1);
+  background: transparent;
+}
+.btn-ghost:hover { color: var(--color-fg); }
+
+/* ── Code / terminal ──────────────────────────────────── */
+.code-shell {
+  background: var(--color-surface);
+  border: 1px solid var(--color-stroke);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-chrome {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--color-stroke);
+  background: var(--color-surface-1);
+}
+.terminal-chrome > span {
+  width: 11px; height: 11px; border-radius: 50%;
+}
+
+/* Subtle running cursor for typed prompts */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+.caret { display: inline-block; width: 8px; height: 1.05em; vertical-align: -0.1em; background: var(--color-brand); margin-left: 2px; animation: blink 1.05s steps(1) infinite; }
+
+/* ── Live signal dot ──────────────────────────────────── */
+.signal {
+  position: relative; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-brand); box-shadow: 0 0 0 0 var(--color-brand-line);
+  animation: signal-pulse 2.2s ease-out infinite;
+}
+@keyframes signal-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(52,211,153, 0.6); }
+  70% { box-shadow: 0 0 0 12px rgba(52,211,153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52,211,153, 0); }
+}
+
+/* ── Sparkline draw-on ────────────────────────────────── */
+@keyframes draw {
   to { stroke-dashoffset: 0; }
 }
-
-.chart-line {
-  stroke-dasharray: 600;
-  animation: draw-line 2.5s ease-out forwards;
+.sparkline path.line {
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  animation: draw 2.4s cubic-bezier(0.7, 0, 0.2, 1) forwards;
 }
 
-/* ── Pulse ring ───────────────────────────────────────── */
-@keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 0.6; }
-  100% { transform: scale(2.5); opacity: 0; }
+/* ── Marquee ──────────────────────────────────────────── */
+.marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  overflow: hidden;
 }
-
-.pulse-ring::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  animation: pulse-ring 2s ease-out infinite;
+.marquee-track {
+  display: inline-flex; gap: 3rem; will-change: transform;
+  animation: marquee 38s linear infinite;
 }
-
-/* ── Horizontal scroll for metrics ────────────────────── */
-.metrics-scroll {
-  mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
-}
-
-@keyframes scroll-left {
+@keyframes marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
 
-.scroll-animate {
-  animation: scroll-left 30s linear infinite;
+/* ── Comparison table ─────────────────────────────────── */
+.cmp { width: 100%; border-collapse: separate; border-spacing: 0; }
+.cmp th, .cmp td {
+  text-align: left; padding: 0.85rem 1rem; font-size: 0.875rem; border-bottom: 1px solid var(--color-stroke);
 }
+.cmp th { color: var(--color-fg-2); font-weight: 500; font-size: 0.8rem; }
+.cmp td { color: var(--color-fg-1); }
+.cmp tr:last-child td { border-bottom: 0; }
+.cmp .col-theoria { background: linear-gradient(180deg, rgba(52, 211, 153, 0.05), rgba(52, 211, 153, 0)); }
+.cmp .col-head-theoria { color: var(--color-brand-bright); font-weight: 600; }
+
+/* ── FAQ ──────────────────────────────────────────────── */
+.faq summary { cursor: pointer; list-style: none; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq details[open] .faq-chev { transform: rotate(180deg); }
+.faq-chev { transition: transform 200ms ease; }
+
+/* ── Reduced motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .signal, .caret, .sparkline path.line { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
