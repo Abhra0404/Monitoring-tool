@@ -27,11 +27,17 @@ interface SocketState {
   anomalies: Record<string, AnomalyEvent[]>; // keyed by `${serverId}:${metric}`
   incidents: Incident[];
   pluginResults: Record<string, PluginResultEvent>;
+  // Filtered ring buffer of recent metric snapshots for the currently
+  // focused server (the ServerDetail page). Capped at 300 points.
+  liveData: MetricSnapshot[];
+  selectedServerId: string;
   socket: Socket | null;
 
   connect: () => void;
   disconnect: () => void;
   clearAlerts: () => void;
+  setSelectedServerId: (id: string) => void;
+  resetStream: () => void;
 }
 
 const useSocketStore = create<SocketState>((set, get) => ({
@@ -49,6 +55,8 @@ const useSocketStore = create<SocketState>((set, get) => ({
   anomalies: {},
   incidents: [],
   pluginResults: {},
+  liveData: [],
+  selectedServerId: "",
   socket: null,
 
   connect() {
@@ -81,9 +89,17 @@ const useSocketStore = create<SocketState>((set, get) => ({
     });
 
     socket.on("metrics", (data: MetricSnapshot) => {
-      set((state) => ({
-        allServerMetrics: { ...state.allServerMetrics, [data.serverId]: data },
-      }));
+      set((state) => {
+        const next: Partial<SocketState> = {
+          allServerMetrics: { ...state.allServerMetrics, [data.serverId]: data },
+        };
+        // Append to the per-server ring buffer when this snapshot is for
+        // the currently focused server.
+        if (state.selectedServerId && data.serverId === state.selectedServerId) {
+          next.liveData = [...state.liveData.slice(-299), data];
+        }
+        return next;
+      });
     });
 
     socket.on("alert:fired", (alert: AlertHistoryEntry) => {
@@ -195,6 +211,16 @@ const useSocketStore = create<SocketState>((set, get) => ({
 
   clearAlerts() {
     set({ alerts: [] });
+  },
+
+  setSelectedServerId(id: string) {
+    // Switching server resets the live ring buffer so the new ServerDetail
+    // page doesn't render points from the previously focused host.
+    set({ selectedServerId: id, liveData: [] });
+  },
+
+  resetStream() {
+    set({ liveData: [] });
   },
 }));
 

@@ -20,23 +20,35 @@ import Topology from "./pages/Topology";
 import Plugins from "./pages/Plugins";
 import CommandPalette from "./components/CommandPalette";
 import MobileTabBar from "./components/MobileTabBar";
-import useSocket from "./hooks/useSocket";
+import useSocketStore from "./stores/socketStore";
 import { fetchServers, fetchActiveAlertCount } from "./services/api";
 import type { ServerRecord, MetricSnapshot, HttpCheckResult, Pipeline, DockerContainer } from "./types";
 
 function AppShell() {
   const navigate = useNavigate();
   const [servers, setServers] = useState<ServerRecord[]>([]);
-  const [selectedServerId, setSelectedServerId] = useState("");
   const [alertCount, setAlertCount] = useState(0);
 
-  const {
-    liveData, alerts, connected, allServerMetrics,
-    httpCheckResults, tcpCheckResults, pingCheckResults, dnsCheckResults,
-    heartbeatEvents, pipelineUpdates, dockerMetrics,
-    events, anomalies, incidents, pluginResults,
-    resetStream,
-  } = useSocket(selectedServerId);
+  // Real-time data is fed by a single Socket.IO connection owned by
+  // socketStore; AppShell just selects what it needs.
+  const selectedServerId = useSocketStore((s) => s.selectedServerId);
+  const setSelectedServerId = useSocketStore((s) => s.setSelectedServerId);
+  const resetStream = useSocketStore((s) => s.resetStream);
+  const liveData = useSocketStore((s) => s.liveData);
+  const alerts = useSocketStore((s) => s.alerts);
+  const connected = useSocketStore((s) => s.connected);
+  const allServerMetrics = useSocketStore((s) => s.allServerMetrics);
+  const httpCheckResults = useSocketStore((s) => s.httpCheckResults);
+  const tcpCheckResults = useSocketStore((s) => s.tcpCheckResults);
+  const pingCheckResults = useSocketStore((s) => s.pingCheckResults);
+  const dnsCheckResults = useSocketStore((s) => s.dnsCheckResults);
+  const heartbeatEvents = useSocketStore((s) => s.heartbeatEvents);
+  const pipelineUpdates = useSocketStore((s) => s.pipelineUpdates);
+  const dockerMetrics = useSocketStore((s) => s.dockerMetrics);
+  const events = useSocketStore((s) => s.events);
+  const anomalies = useSocketStore((s) => s.anomalies);
+  const incidents = useSocketStore((s) => s.incidents);
+  const pluginResults = useSocketStore((s) => s.pluginResults);
 
   // Load servers + alert count on mount and every 15 s
   useEffect(() => {
@@ -64,8 +76,7 @@ function AppShell() {
   const handleSelectServer = useCallback((serverId: string) => {
     setSelectedServerId(serverId);
     navigate(`/servers/${serverId}`);
-    resetStream();
-  }, [navigate, resetStream]);
+  }, [navigate, setSelectedServerId]);
 
   return (
     <div className="flex h-screen bg-[#010409] text-gray-100">
